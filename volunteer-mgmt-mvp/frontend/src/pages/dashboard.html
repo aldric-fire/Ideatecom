@@ -5,9 +5,55 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h2>My Dashboard</h2>
-  <p>Hours Contributed: 10</p>
-  <p>Roles Taken: Cycling Buddy, Event Helper</p>
-  <p>Passion Index: ⭐⭐⭐⭐☆</p>
+  <!-- Header -->
+  <header>
+    <h1>🚲 My Volunteer Dashboard</h1>
+    <nav>
+      <a href="index.html">Home</a> |
+      <a href="signup.html">Sign Up</a> |
+      <a href="onboarding.html">Onboarding</a> |
+      <a href="events.html">Events</a> |
+      <a href="admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Stats Cards -->
+    <div class="card">
+      <h3>Hours Contributed</h3>
+      <p>10 Hours</p>
+      <div class="progress-bar">
+        <div class="progress" style="width:50%;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Roles Taken</h3>
+      <p>
+        <span class="badge">Cycling Buddy</span>
+        <span class="badge">Event Helper</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Passion Index</h3>
+      <p>⭐⭐⭐⭐☆</p>
+    </div>
+
+    <!-- Optional: Add upcoming events for this volunteer -->
+    <div class="card">
+      <h3>Upcoming Events</h3>
+      <ul>
+        <li>Weekend Ride – Role: Cycling Buddy <button>Sign Up</button></li>
+        <li>Community Picnic – Role: Event Helper <button>Sign Up</button></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2025 Ageless Bicyclists
+  </footer>
 </body>
 </html>
