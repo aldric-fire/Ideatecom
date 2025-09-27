@@ -5,13 +5,68 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h2>Admin Dashboard</h2>
-  <p>Active Volunteers: 25</p>
-  <p>Unfilled Roles: 2 (Mechanics)</p>
-  <h3>Passion Index Leaderboard</h3>
-  <ol>
-    <li>Alice – 92</li>
-    <li>Bob – 88</li>
-  </ol>
+  <header>
+    <h1>🚲 Ageless Bicyclists Admin Dashboard</h1>
+    <nav>
+      <a href="index.html">Home</a> |
+      <a href="signup.html">Sign Up</a> |
+      <a href="onboarding.html">Onboarding</a> |
+      <a href="dashboard.html">Volunteer Dashboard</a> |
+      <a href="events.html">Events</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <!-- Overview Cards -->
+    <div class="card">
+      <h3>Active Volunteers</h3>
+      <p>25</p>
+    </div>
+
+    <div class="card">
+      <h3>Unfilled Roles</h3>
+      <p>2 <span class="badge">Mechanics</span></p>
+    </div>
+
+    <!-- Passion Index Leaderboard -->
+    <div class="card">
+      <h3>Passion Index Leaderboard</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Volunteer</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alice</td>
+            <td>92</td>
+          </tr>
+          <tr>
+            <td>Bob</td>
+            <td>88</td>
+          </tr>
+          <tr>
+            <td>Charlie</td>
+            <td>85</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Optional: Add more cards for upcoming events or role distribution -->
+    <div class="card">
+      <h3>Upcoming Events</h3>
+      <ul>
+        <li>Weekend Ride – Cycling Buddy <button>Assign Volunteers</button></li>
+        <li>Bike Repair Workshop – Mechanic <button>Assign Volunteers</button></li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2025 Ageless Bicyclists
+  </footer>
 </body>
 </html>
