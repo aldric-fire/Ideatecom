@@ -5,12 +5,54 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h2>Onboarding Modules</h2>
-  <ul>
-    <li>🚲 Safety Basics – <button>Start</button></li>
-    <li>🔧 Mechanics 101 – <button>Start</button></li>
-    <li>🎉 Event Support – <button>Start</button></li>
-  </ul>
-  <p>Progress: [placeholder progress bar]</p>
+  <!-- Header -->
+  <header>
+    <h1>🚲 Volunteer Onboarding</h1>
+    <nav>
+      <a href="index.html">Home</a> |
+      <a href="signup.html">Sign Up</a> |
+      <a href="dashboard.html">Dashboard</a> |
+      <a href="events.html">Events</a> |
+      <a href="admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Onboarding Modules -->
+    <h2>Onboarding Modules</h2>
+
+    <div class="card">
+      <h3>🚲 Safety Basics</h3>
+      <p>Learn essential cycling safety tips and guidelines.</p>
+      <button>Start Module</button>
+      <div class="progress-bar">
+        <div class="progress" style="width: 30%;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔧 Mechanics 101</h3>
+      <p>Basic bike maintenance and repair skills for volunteers.</p>
+      <button>Start Module</button>
+      <div class="progress-bar">
+        <div class="progress" style="width: 10%;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🎉 Event Support</h3>
+      <p>Learn how to assist during events and support your team effectively.</p>
+      <button>Start Module</button>
+      <div class="progress-bar">
+        <div class="progress" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2025 Ageless Bicyclists
+  </footer>
 </body>
 </html>
