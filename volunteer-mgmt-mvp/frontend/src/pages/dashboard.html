@@ -1,59 +1,330 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Volunteer Dashboard</title>
-  <link rel="stylesheet" href="src/style/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volunteer Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMDJ8C+a5+q9gW76j42N71nB4mE/2/j6k9N7r+A2hV9eYc6F8p6E6aN/F4aA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+    <script>
+        const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
+        const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
+        const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'; // Key used to fetch the current user
+
+        // MAPPING: Define the available system roles and their display information
+        // *** These keys MUST match the sign-up page keys! ***
+        const HERO_ROLES = {
+            'cycling-buddy': { name: 'Cycling Buddy', icon: '🚴‍♀️', color: 'text-green-600', bg: 'bg-green-100' },
+            'logistics-support': { name: 'Logistics Pro', icon: '📦', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+            'mechanic': { name: 'Bike Mechanic', icon: '🔧', color: 'text-red-600', bg: 'bg-red-100' },
+            'planner': { name: 'Senior Planner', icon: '🗓️', color: 'text-blue-600', bg: 'bg-blue-100' },
+            'default': { name: 'New Recruit', icon: '👤', color: 'text-gray-600', bg: 'bg-gray-100' } // Fallback
+        };
+
+        function getVolunteers() {
+            try {
+                const data = localStorage.getItem(VOLUNTEERS_STORAGE_KEY);
+                return data ? JSON.parse(data).filter(v => v && typeof v === 'object') : [];
+            } catch (e) { return []; }
+        }
+
+        function saveVolunteers(volunteers) {
+            try {
+                localStorage.setItem(VOLUNTEERS_STORAGE_KEY, JSON.stringify(volunteers));
+            } catch (e) { console.error("Error saving volunteers:", e); }
+        }
+
+        function getActivities() {
+            try {
+                const data = localStorage.getItem(ACTIVITIES_STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        }
+        
+        function formatDate(isoString) {
+            const date = new Date(isoString + 'T00:00:00'); 
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        
+        function showMessageBox(message, isError = false) {
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message-box-text');
+            const messageCard = document.getElementById('message-box-card');
+            const messageIcon = document.getElementById('message-box-icon');
+            
+            messageText.innerHTML = message;
+            
+            if (isError) {
+                messageCard.className = 'bg-white p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-red-500';
+                document.getElementById('message-box-button').className = 'bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg text-sm';
+                messageIcon.className = 'fa-solid fa-triangle-exclamation text-red-500 text-3xl mb-3';
+            } else {
+                messageCard.className = 'bg-white p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-green-500';
+                document.getElementById('message-box-button').className = 'bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm';
+                messageIcon.className = 'fa-solid fa-circle-check text-green-500 text-3xl mb-3';
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        window.handleUnregister = function(activityId) {
+            let volunteers = getVolunteers();
+            let activities = getActivities();
+            // Fetch current user using the ID for reliability
+            const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
+            const currentUser = volunteers.find(v => v.id === currentUserId);
+
+            if (!currentUser || currentUser.assignedActivityId !== activityId) {
+                showMessageBox("Error: Could not unregister. Activity or user not found.", true);
+                return;
+            }
+
+            const activityIndex = activities.findIndex(a => a.id === activityId);
+            if (activityIndex !== -1) {
+                const indexToRemove = activities[activityIndex].assignedVolunteerIds.indexOf(currentUser.id);
+                if (indexToRemove > -1) {
+                    activities[activityIndex].assignedVolunteerIds.splice(indexToRemove, 1);
+                }
+            }
+
+            const volunteerIndex = volunteers.findIndex(v => v.id === currentUser.id);
+            if (volunteerIndex !== -1) {
+                volunteers[volunteerIndex].assignedActivityId = null;
+            }
+
+            saveActivities(activities);
+            saveVolunteers(volunteers);
+            showMessageBox(`Successfully unregistered from the mission.`);
+            
+            renderDashboard(); 
+        }
+
+        function renderDashboard() {
+            const volunteers = getVolunteers();
+            const activities = getActivities();
+            
+            // --- CRITICAL STEP: Fetch user by the stored ID ---
+            const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
+            let currentUser = volunteers.find(v => v.id === currentUserId);
+            // If the ID isn't found (e.g., first load), fall back to the first non-planner
+            if (!currentUser) {
+                currentUser = volunteers.find(v => v.role !== 'planner') || volunteers[0];
+            }
+            // --------------------------------------------------
+
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const currentUserDisplay = document.getElementById('current-user-display');
+            const roleCard = document.getElementById('role-card');
+
+            if (!currentUser) {
+                dashboardContainer.innerHTML = '<p class="text-center text-red-500 text-xl font-semibold mt-10"><i class="fa-solid fa-user-xmark mr-2"></i> No volunteer data found. Please complete the <a href="index.html" class="text-sky-500 font-bold hover:underline">Sign-up</a> first.</p>';
+                return;
+            }
+
+            // --- ROLE FETCHING: Use the 'role' property from the volunteer object ---
+            // If the role isn't one of the HERO_ROLES keys, it falls back to 'default'.
+            const volunteerRoleKey = currentUser.role in HERO_ROLES ? currentUser.role : 'default';
+            const heroRole = HERO_ROLES[volunteerRoleKey]; 
+            // ------------------------------------------------------------------------
+
+
+            // Display Current User Name
+            if (currentUserDisplay) {
+                currentUserDisplay.textContent = currentUser.name || 'Volunteer';
+            }
+            
+            // --- 1. Hero Role Card (Now Dynamic) ---
+            roleCard.innerHTML = `
+                <div class="p-6 rounded-xl text-center ${heroRole.bg} border-2 border-dashed border-purple-500">
+                    <p class="text-xl font-extrabold text-purple-700 uppercase mb-2">
+                        <span class="text-3xl">🌟</span> Your Hero Role 🌟
+                    </p>
+                    <div class="text-6xl my-4">${heroRole.icon}</div>
+                    <h2 class="text-3xl font-black ${heroRole.color} mb-3">${heroRole.name}</h2>
+                    <p class="text-sm text-gray-700">
+                        This is your primary mission specialization, defined at sign-up.
+                    </p>
+                </div>
+            `;
+
+            // --- 2. Current Assignment Card (Logic unchanged) ---
+            const assignmentCard = document.getElementById('assignment-card');
+            const currentAssignment = activities.find(a => a.id === currentUser.assignedActivityId);
+            const isAssigned = !!currentAssignment;
+
+            if (isAssigned) {
+                assignmentCard.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-2xl font-extrabold text-sky-800 flex items-center">
+                            <i class="fa-solid fa-bell-concierge mr-3"></i> Active Mission
+                        </h3>
+                        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm shadow-md">
+                            ${currentAssignment.roleNeeded.charAt(0).toUpperCase() + currentAssignment.roleNeeded.slice(1).replace('-', ' ')}
+                        </span>
+                    </div>
+                    <p class="text-3xl font-extrabold text-sky-800">${currentAssignment.name}</p>
+                    <p class="text-lg text-gray-700 mt-2"><i class="fa-solid fa-calendar-day mr-2 text-sky-500"></i> Date: <span class="font-semibold">${formatDate(currentAssignment.date)}</span></p>
+                    <p class="text-sm text-sky-600 mt-3 border-t pt-2">
+                        <i class="fa-solid fa-lightbulb text-sky-500 mr-2"></i> **Tip:** Review the mission details on the Events page!
+                    </p>
+                    <button onclick="handleUnregister('${currentAssignment.id}')" class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fa-solid fa-user-minus mr-2"></i> Unregister (Must have good reason!)
+                    </button>
+                `;
+            } else {
+                assignmentCard.innerHTML = `
+                    <div class="p-6 bg-green-100 rounded-lg border-2 border-green-400 text-center">
+                        <i class="fa-solid fa-check-circle text-5xl text-green-500 mb-3"></i>
+                        <p class="text-2xl font-extrabold text-green-800">Mission Ready!</p>
+                        <p class="text-md text-gray-700 mt-1">You currently have no active assignment. Go find an adventure!</p>
+                        <a href="events.html" class="inline-block mt-3 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                            <i class="fa-solid fa-magnifying-glass mr-2"></i> Browse Missions
+                        </a>
+                    </div>
+                `;
+            }
+
+            // --- 3. Suggested Events List (Logic unchanged) ---
+            const upcomingEventsList = document.getElementById('upcoming-events-list');
+            
+            const upcomingEvents = activities
+                .filter(a => a.assignedVolunteerIds.length < a.requiredVolunteers)
+                .filter(a => a.id !== (currentUser ? currentUser.assignedActivityId : null))
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .slice(0, 3);
+
+            if (upcomingEvents.length > 0) {
+                upcomingEventsList.innerHTML = upcomingEvents.map(activity => {
+                    const remaining = activity.requiredVolunteers - activity.assignedVolunteerIds.length;
+                    const spotsTextClass = remaining <= 2 ? 'text-red-600' : 'text-green-600';
+                    return `
+                        <li class="bg-gray-100 p-4 rounded-lg shadow-sm border-l-4 border-orange-500 flex justify-between items-center transition duration-200 hover:shadow-md hover:bg-gray-200">
+                            <div>
+                                <p class="text-lg font-bold text-gray-800">${activity.name}</p>
+                                <p class="text-sm text-orange-600 font-semibold"><i class="fa-solid fa-clock mr-1"></i> ${formatDate(activity.date)}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-2xl font-black ${spotsTextClass}">${remaining}</span>
+                                <span class="text-xs text-gray-500">Spots Left</span>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+            } else {
+                upcomingEventsList.innerHTML = '<li class="p-4 text-center text-gray-500"><i class="fa-solid fa-cloud-sun mr-2"></i> All clear! Time for some rest, or check back later!</li>';
+            }
+            
+            // --- 4. Activity History (Logic unchanged) ---
+            const historyList = document.getElementById('history-list');
+            const completedMissions = [
+                { id: 1, name: "Sunset Park Ride Patrol", date: "2025-05-10", role: "Buddy", rating: 5, xp: 50 },
+                { id: 2, name: "Bike Maintenance Workshop", date: "2025-04-15", role: "Mechanic", rating: 4, xp: 40 },
+            ];
+
+            if (completedMissions.length > 0) {
+                historyList.innerHTML = completedMissions.map(mission => {
+                    const stars = '<i class="fa-solid fa-star text-yellow-400"></i>'.repeat(mission.rating) + '<i class="fa-regular fa-star text-yellow-400"></i>'.repeat(5 - mission.rating);
+                    return `
+                        <li class="bg-gray-100 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                            <div>
+                                <p class="text-lg font-semibold text-gray-800">${mission.name}</p>
+                                <p class="text-sm text-gray-500">Completed on ${formatDate(mission.date)}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-md">${stars}</p>
+                                <p class="text-sm font-bold text-green-600"><i class="fa-solid fa-circle-up mr-1"></i> +${mission.xp} XP</p>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+            } else {
+                historyList.innerHTML = '<li class="p-4 text-center text-gray-500">No completed missions yet. Let\'s get riding!</li>';
+            }
+
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+             renderDashboard();
+            
+             document.getElementById('close-message-box').addEventListener('click', () => {
+                 document.getElementById('message-box').classList.add('hidden');
+             });
+        });
+    </script>
 </head>
-<body>
-  <!-- Header -->
-  <header>
-    <h1>🚲 My Volunteer Dashboard</h1>
-    <nav>
-      <a href="index.html">Home</a> |
-      <a href="signup.html">Sign Up</a> |
-      <a href="onboarding.html">Onboarding</a> |
-      <a href="events.html">Events</a> |
-      <a href="admin.html">Admin</a>
-    </nav>
-  </header>
-
-  <!-- Main Container -->
-  <div class="container">
-    <!-- Stats Cards -->
-    <div class="card">
-      <h3>Hours Contributed</h3>
-      <p>10 Hours</p>
-      <div class="progress-bar">
-        <div class="progress" style="width:50%;"></div>
-      </div>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    
+    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-sky-500" id="message-box-card">
+            <i id="message-box-icon" class="text-3xl mb-3"></i>
+            <p id="message-box-text" class="text-lg font-semibold text-gray-800 mb-4"></p>
+            <button id="close-message-box" class="bg-sky-500 hover:bg-sky-600 text-white py-2 px-4 rounded-lg text-sm" id="message-box-button">
+                OK
+            </button>
+        </div>
     </div>
 
-    <div class="card">
-      <h3>Roles Taken</h3>
-      <p>
-        <span class="badge">Cycling Buddy</span>
-        <span class="badge">Event Helper</span>
-      </p>
+    <header class="bg-sky-600 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-white tracking-wide"><i class="fa-solid fa-user-gear mr-2"></i> Welcome, <span id="current-user-display" class="text-sky-200"></span>!</h1>
+            <nav class="space-x-4 flex">
+                <a href="index.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Sign Up</a>
+                <a href="dashboard.html" class="text-white bg-sky-700 hover:bg-sky-800 px-3 py-2 rounded-lg font-bold transition duration-150 shadow-md">Dashboard</a>
+                <a href="events.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Events</a>
+                <a href="admin.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <div id="dashboard-container" class="max-w-7xl mx-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
+        
+        <div class="lg:col-span-1 space-y-6">
+            
+            <div id="role-card" class="bg-white p-2 rounded-xl shadow-2xl border-t-4 border-purple-500 text-center transition duration-300 hover:shadow-purple-300/50">
+                <p class="text-center text-gray-500">Loading Role...</p>
+            </div>
+            
+            <div id="assignment-card" class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-sky-500 transition duration-300 hover:shadow-sky-300/50">
+                <p class="text-xl font-bold text-sky-700 mb-2">Current Assignment</p>
+                </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-orange-500">
+                <h2 class="text-2xl font-bold text-orange-700 mb-4 flex items-center">
+                    <i class="fa-solid fa-map-pin mr-3"></i> Suggested Missions (Top 3)
+                </h2>
+                <p class="text-gray-600 mb-4">Missions needing help soon and matching your profile.</p>
+                
+                <ul id="upcoming-events-list" class="space-y-3">
+                    <li class="p-4 text-center text-gray-400">Loading events...</li>
+                </ul>
+                <div class="mt-4 text-right border-t pt-3">
+                    <a href="events.html" class="text-sm font-medium text-orange-600 hover:text-orange-800 transition duration-150 flex items-center justify-end">
+                        <i class="fa-solid fa-arrow-right mr-2"></i> View All Open Missions
+                    </a>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-gray-400">
+                <h2 class="text-2xl font-bold text-gray-700 mb-4 flex items-center">
+                    <i class="fa-solid fa-trophy mr-3"></i> Mission Debrief & XP Earned
+                </h2>
+                <p class="text-gray-600 mb-4">Your past missions, performance ratings, and experience points (XP).</p>
+                
+                <ul id="history-list" class="space-y-3">
+                    </ul>
+            </div>
+            
+        </div>
+        
     </div>
 
-    <div class="card">
-      <h3>Passion Index</h3>
-      <p>⭐⭐⭐⭐☆</p>
-    </div>
-
-    <!-- Optional: Add upcoming events for this volunteer -->
-    <div class="card">
-      <h3>Upcoming Events</h3>
-      <ul>
-        <li>Weekend Ride – Role: Cycling Buddy <button>Sign Up</button></li>
-        <li>Community Picnic – Role: Event Helper <button>Sign Up</button></li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer>
-    &copy; 2025 Ageless Bicyclists
-  </footer>
+    <footer class="bg-gray-800 text-white text-center py-4 mt-auto text-sm">
+        &copy; 2025 Ageless Bicyclists | Fueled by Community Passion
+    </footer>
 </body>
 </html>

@@ -1,58 +1,373 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Onboarding</title>
-  <link rel="stylesheet" href="src/style/styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volunteer Onboarding & Resources</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Simple animation for the power-up effect */
+        @keyframes pulse-up {
+            0% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-10px); opacity: 1; }
+            100% { transform: translateY(0); opacity: 0; }
+        }
+        .passion-power-up {
+            animation: pulse-up 1s ease-out forwards;
+        }
+    </style>
+    <script>
+        const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
+        const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
+        const APPRAISALS_STORAGE_KEY = 'AB_APPRAISALS'; 
+
+        function getVolunteers() {
+            try {
+                const data = localStorage.getItem(VOLUNTEERS_STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveVolunteers(volunteers) {
+            try {
+                localStorage.setItem(VOLUNTEERS_STORAGE_KEY, JSON.stringify(volunteers));
+            } catch (e) { console.error("Error saving volunteers to localStorage:", e); }
+        }
+
+        function getActivities() {
+            try {
+                const data = localStorage.getItem(ACTIVITIES_STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        }
+        
+        function getAppraisals() {
+            try {
+                const data = localStorage.getItem(APPRAISALS_STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveAppraisals(appraisals) {
+            try {
+                localStorage.setItem(APPRAISALS_STORAGE_KEY, JSON.stringify(appraisals));
+            } catch (e) { console.error("Error saving appraisals to localStorage:", e); }
+        }
+
+        // Custom Message Box function (replacing alert())
+        function showMessageBox(message, isError = false) {
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message-box-text');
+            const messageCard = document.getElementById('message-box-card');
+            const messageButton = document.getElementById('close-message-box'); // Using the correct ID
+            
+            if (!messageBox || !messageText || !messageCard || !messageButton) {
+                console.error("Messaging UI components not found in the DOM.");
+                return; 
+            }
+
+            messageText.textContent = message;
+            
+            // Re-use logic for color changes
+            const baseCardClasses = 'bg-white p-6 rounded-xl shadow-2xl w-80 text-center border-t-4';
+            const baseButtonClasses = 'text-white py-2 px-4 rounded-lg text-sm';
+
+            if (isError) {
+                messageCard.className = `${baseCardClasses} border-red-500`;
+                messageButton.className = `${baseButtonClasses} bg-red-500 hover:bg-red-600`;
+            } else {
+                messageCard.className = `${baseCardClasses} border-sky-500`;
+                messageButton.className = `${baseButtonClasses} bg-sky-500 hover:bg-sky-600`;
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        // --- NEW: Passion Power-Up Animation Function ---
+        function triggerPassionPowerUp(effect) {
+            const powerUpContainer = document.getElementById('passion-power-up-container');
+            if (!powerUpContainer) return;
+
+            const sign = effect >= 0 ? '+' : '';
+            const color = effect >= 0 ? 'text-green-500' : 'text-red-500';
+
+            const powerUp = document.createElement('div');
+            powerUp.textContent = `${sign}${effect} PI`;
+            powerUp.className = `absolute text-2xl font-extrabold ${color} passion-power-up`;
+            
+            // Randomize starting position slightly for a fun, game-like effect
+            const offsetX = (Math.random() - 0.5) * 50; // -25px to +25px
+            powerUp.style.left = `50%`;
+            powerUp.style.transform = `translateX(-50%) translateX(${offsetX}px)`;
+            
+            powerUpContainer.appendChild(powerUp);
+
+            // Clean up the element after the animation finishes
+            powerUp.addEventListener('animationend', () => {
+                powerUp.remove();
+            });
+        }
+        // --------------------------------------------------
+
+        // --- Form Submission Logic ---
+        function handleAppraisalSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            const volunteerName = formData.get('volunteer-name').trim();
+            const activityId = formData.get('activity-id');
+            const passionEffect = parseInt(formData.get('passion-effect'), 10);
+            
+            if (!volunteerName || !activityId || isNaN(passionEffect)) {
+                showMessageBox("Please ensure the Volunteer, Activity, and a Passion Index effect are selected.", true);
+                return;
+            }
+
+            let volunteers = getVolunteers();
+            const volunteerIndex = volunteers.findIndex(v => v.name.toLowerCase() === volunteerName.toLowerCase());
+
+            if (volunteerIndex === -1) {
+                showMessageBox(`Volunteer "${volunteerName}" not found.`, true);
+                return;
+            }
+            
+            const volunteer = volunteers[volunteerIndex];
+            const oldIndex = volunteer.passionIndex;
+            const newIndex = Math.max(0, volunteer.passionIndex + passionEffect);
+
+            // 1. Update Volunteer's Passion Index
+            volunteer.passionIndex = newIndex;
+            volunteer.assignedActivityId = null; 
+            saveVolunteers(volunteers);
+            
+            // 2. Trigger the Fun Animation!
+            triggerPassionPowerUp(passionEffect);
+
+            // 3. Save Appraisal Record (rest of the original logic)
+            const activities = getActivities();
+            const activity = activities.find(a => a.id === activityId);
+            
+            const newAppraisal = {
+                id: crypto.randomUUID(),
+                volunteerId: volunteer.id,
+                volunteerName: volunteer.name,
+                activityId: activityId,
+                activityName: activity ? activity.name : 'N/A',
+                passionIndexEffect: passionEffect,
+                newPassionIndex: newIndex,
+                oldPassionIndex: oldIndex,
+                comment: formData.get('comment'),
+                timestamp: new Date().toISOString()
+            };
+
+            const appraisals = getAppraisals();
+            appraisals.push(newAppraisal);
+            saveAppraisals(appraisals);
+
+            form.reset();
+            populateVolunteerDropdown();
+            // Show a friendlier success message
+            showMessageBox(`Index for ${volunteerName} updated! They feel the ${passionEffect >= 0 ? 'boost' : 'correction'}. New Index: ${newIndex}.`);
+        }
+
+        // --- Dynamic Dropdown Population (No change, just ensuring they work) ---
+        function populateVolunteerDropdown() {
+            const volunteers = getVolunteers().filter(v => v.role !== 'planner');
+            const select = document.getElementById('volunteer-name-select');
+            
+            select.innerHTML = '<option value="" disabled selected>Select Volunteer</option>';
+
+            volunteers.sort((a, b) => a.name.localeCompare(b.name)).forEach(v => {
+                const option = document.createElement('option');
+                option.value = v.name;
+                option.textContent = `${v.name} (PI: ${v.passionIndex})`;
+                select.appendChild(option);
+            });
+        }
+        
+        function populateActivityDropdown() {
+            const activities = getActivities();
+            const select = document.getElementById('activity-id-select');
+            
+            select.innerHTML = '<option value="" disabled selected>Select Activity</option>';
+
+            activities.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+                const option = document.createElement('option');
+                option.value = a.id;
+                option.textContent = `${a.name} (${a.date})`;
+                select.appendChild(option);
+            });
+        }
+        
+        // --- NEW: Resource Checkoff Logic ---
+        function toggleResource(elementId) {
+            const element = document.getElementById(elementId);
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            
+            if (checkbox.checked) {
+                // If checking, add completed styles
+                element.classList.remove('bg-gray-50', 'hover:bg-gray-100');
+                element.classList.add('bg-green-50', 'ring-2', 'ring-green-400');
+            } else {
+                // If unchecking, remove completed styles
+                element.classList.remove('bg-green-50', 'ring-2', 'ring-green-400');
+                element.classList.add('bg-gray-50', 'hover:bg-gray-100');
+            }
+        }
+        // ------------------------------------
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateVolunteerDropdown();
+            populateActivityDropdown();
+
+            const appraisalForm = document.getElementById('appraisal-form');
+            if (appraisalForm) {
+                appraisalForm.addEventListener('submit', handleAppraisalSubmit);
+            }
+            
+            document.getElementById('close-message-box').addEventListener('click', () => {
+                document.getElementById('message-box').classList.add('hidden');
+            });
+        });
+    </script>
 </head>
-<body>
-  <!-- Header -->
-  <header>
-    <h1>🚲 Volunteer Onboarding</h1>
-    <nav>
-      <a href="index.html">Home</a> |
-      <a href="signup.html">Sign Up</a> |
-      <a href="dashboard.html">Dashboard</a> |
-      <a href="events.html">Events</a> |
-      <a href="admin.html">Admin</a>
-    </nav>
-  </header>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-sky-500" id="message-box-card">
+            <p id="message-box-text" class="text-lg font-semibold text-gray-800 mb-4"></p>
+            <button id="close-message-box" class="bg-sky-500 hover:bg-sky-600 text-white py-2 px-4 rounded-lg text-sm transition duration-150">
+                OK
+            </button>
+        </div>
+    </div>
+    
+    <header class="bg-sky-600 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-extrabold text-white tracking-wide">🏆 Mission Control & Resources</h1>
+            <nav class="space-x-4 flex">
+                <a href="index.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Home</a>
+                <a href="dashboard.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Dashboard</a>
+                <a href="events.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Events</a>
+                <a href="admin.html" class="text-white bg-sky-700 hover:bg-sky-800 px-3 py-2 rounded-lg font-bold transition duration-150 shadow-md">Admin</a>
+            </nav>
+        </div>
+    </header>
 
-  <!-- Main Container -->
-  <div class="container">
-    <!-- Onboarding Modules -->
-    <h2>Onboarding Modules</h2>
+    <div class="max-w-7xl mx-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow w-full">
+        
+        <div class="lg:col-span-2 space-y-8">
+            
+            <section class="bg-white p-6 rounded-xl shadow-2xl border-l-4 border-sky-500">
+                <h2 class="text-3xl font-extrabold text-sky-700 mb-2 flex items-center">
+                    <span class="mr-3 text-4xl">🚀</span> Volunteer Training Checklist
+                </h2>
+                <p class="text-gray-600 mb-6">Complete these missions to earn the "Fully Certified Volunteer" badge!</p>
+                
+                <ul class="space-y-3">
+                    <li id="resource-1" onclick="toggleResource('resource-1')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
+                        <input type="checkbox" id="check-1" class="hidden">
+                        <label for="check-1" class="flex-grow flex items-start space-x-3">
+                            <span class="text-xl pt-0.5">📜</span>
+                            <div>
+                                <p class="font-semibold text-gray-800">Review: Safety Protocol (V2.1)</p>
+                                <p class="text-sm text-gray-500">Master the basics of on-road safety and emergency response.</p>
+                            </div>
+                        </label>
+                        <span class="text-2xl text-green-500">✅</span>
+                    </li>
+                    
+                    <li id="resource-2" onclick="toggleResource('resource-2')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
+                        <input type="checkbox" id="check-2" class="hidden">
+                        <label for="check-2" class="flex-grow flex items-start space-x-3">
+                            <span class="text-xl pt-0.5">🔧</span>
+                            <div>
+                                <p class="font-semibold text-gray-800">Watch: Basic Bike Maintenance Video Series</p>
+                                <p class="text-sm text-gray-500">Learn quick fixes to keep the fun rolling!</p>
+                            </div>
+                        </label>
+                        <span class="text-2xl text-green-500">✅</span>
+                    </li>
+                    
+                    <li id="resource-3" onclick="toggleResource('resource-3')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
+                        <input type="checkbox" id="check-3" class="hidden">
+                        <label for="check-3" class="flex-grow flex items-start space-x-3">
+                            <span class="text-xl pt-0.5">🗺️</span>
+                            <div>
+                                <p class="font-semibold text-gray-800">Complete: Event Logistics Quiz</p>
+                                <p class="text-sm text-gray-500">Test your knowledge on setup and tear-down procedures.</p>
+                            </div>
+                        </label>
+                        <span class="text-2xl text-green-500">✅</span>
+                    </li>
+                    
+                </ul>
+            </section>
+            
+            <section class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
+                <h2 class="text-3xl font-bold text-green-700 mb-4 flex items-center">
+                    <span class="mr-3 text-4xl">📘</span> Official Handbook
+                </h2>
+                <p class="text-gray-600">The master guide for our community. Download it, read it, live it!</p>
+                <a href="#" class="inline-block mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-lg transform hover:scale-[1.01] active:scale-[0.99] flex items-center w-full sm:w-auto justify-center">
+                    <span class="text-lg mr-2">⬇️</span> Download Full Handbook (PDF)
+                </a>
+            </section>
+        </div>
+        
+        <div class="lg:col-span-1 h-fit relative">
+            
+            <div id="passion-power-up-container" class="absolute inset-0 pointer-events-none">
+                </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-red-500 relative z-10">
+                <h2 class="text-2xl font-extrabold text-red-700 mb-2 flex items-center">
+                    <span class="mr-2 text-3xl">🔥</span> Passion Index Adjuster
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">Admin Tool: Calibrate a volunteer's Passion Index based on their latest mission performance.</p>
+                
+                <form id="appraisal-form" class="space-y-4">
+                    <label class="block">
+                        <span class="text-gray-700 font-semibold">Volunteer:</span>
+                        <select id="volunteer-name-select" name="volunteer-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white focus:ring-red-500 focus:border-red-500 transition duration-150">
+                            <option value="" disabled selected>Select Volunteer (Current PI)</option>
+                        </select>
+                    </label>
+                    
+                    <label class="block">
+                        <span class="text-gray-700 font-semibold">Mission Completed:</span>
+                        <select id="activity-id-select" name="activity-id" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white focus:ring-red-500 focus:border-red-500 transition duration-150">
+                            <option value="" disabled selected>Select Activity</option>
+                        </select>
+                    </label>
 
-    <div class="card">
-      <h3>🚲 Safety Basics</h3>
-      <p>Learn essential cycling safety tips and guidelines.</p>
-      <button>Start Module</button>
-      <div class="progress-bar">
-        <div class="progress" style="width: 30%;"></div>
-      </div>
+                    <label class="block">
+                        <span class="text-gray-700 font-semibold">Index Effect:</span>
+                        <select name="passion-effect" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white font-bold text-center focus:ring-red-500 focus:border-red-500 transition duration-150">
+                            <option value="10" class="text-green-600">+10 🔥 Legendary Performance!</option>
+                            <option value="5" class="text-green-500">+5 Great Job!</option>
+                            <option value="0" selected class="text-gray-600">0 Standard Mission Success</option>
+                            <option value="-5" class="text-red-500">-5 Needs Follow-Up</option>
+                            <option value="-10" class="text-red-600">-10 Major Issue</option>
+                        </select>
+                    </label>
+                    
+                    <label class="block">
+                        <span class="text-gray-700 font-semibold">Appraisal Notes (The 'Why'):</span>
+                        <textarea name="comment" rows="3" placeholder="Provide feedback to justify the index change..." class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-red-500 focus:border-red-500 transition duration-150"></textarea>
+                    </label>
+                    
+                    <button type="submit" class="w-full bg-red-500 hover:bg-red-700 text-white font-extrabold py-3 px-4 rounded-xl transition duration-200 shadow-lg transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center">
+                        <span class="mr-2 text-xl">⚡</span> APPLY PASSION POWER-UP
+                    </button>
+                </form>
+            </div>
+        </div>
+        
     </div>
 
-    <div class="card">
-      <h3>🔧 Mechanics 101</h3>
-      <p>Basic bike maintenance and repair skills for volunteers.</p>
-      <button>Start Module</button>
-      <div class="progress-bar">
-        <div class="progress" style="width: 10%;"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>🎉 Event Support</h3>
-      <p>Learn how to assist during events and support your team effectively.</p>
-      <button>Start Module</button>
-      <div class="progress-bar">
-        <div class="progress" style="width: 0%;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer>
-    &copy; 2025 Ageless Bicyclists
-  </footer>
+    <footer class="bg-gray-800 text-white text-center py-4 mt-auto text-sm">
+        &copy; 2025 Ageless Bicyclists | Mission Control Dashboard
+    </footer>
 </body>
 </html>
