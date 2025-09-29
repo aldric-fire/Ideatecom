@@ -5,6 +5,7 @@
     <title>Volunteer Onboarding & Resources</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
         /* Simple animation for the power-up effect */
@@ -118,85 +119,98 @@
             const volunteerName = formData.get('volunteer-name').trim();
             const activityId = formData.get('activity-id');
             const passionEffect = parseInt(formData.get('passion-effect'), 10);
+            const comment = formData.get('comment');
             
             if (!volunteerName || !activityId || isNaN(passionEffect)) {
                 showMessageBox("Please ensure the Volunteer, Activity, and a Passion Index effect are selected.", true);
                 return;
             }
 
-            let volunteers = getVolunteers();
-            const volunteerIndex = volunteers.findIndex(v => v.name.toLowerCase() === volunteerName.toLowerCase());
+            // Get volunteer ID from the dropdown value (which includes the name and PI)
+            const volunteerSelect = document.getElementById('volunteer-name-select');
+            const selectedOption = volunteerSelect.options[volunteerSelect.selectedIndex];
+            const volunteerId = selectedOption.dataset.id;
 
-            if (volunteerIndex === -1) {
+            if (!volunteerId) {
                 showMessageBox(`Volunteer "${volunteerName}" not found.`, true);
                 return;
             }
-            
-            const volunteer = volunteers[volunteerIndex];
-            const oldIndex = volunteer.passionIndex;
-            const newIndex = Math.max(0, volunteer.passionIndex + passionEffect);
 
-            // 1. Update Volunteer's Passion Index
-            volunteer.passionIndex = newIndex;
-            volunteer.assignedActivityId = null; 
-            saveVolunteers(volunteers);
-            
-            // 2. Trigger the Fun Animation!
-            triggerPassionPowerUp(passionEffect);
-
-            // 3. Save Appraisal Record (rest of the original logic)
-            const activities = getActivities();
-            const activity = activities.find(a => a.id === activityId);
-            
-            const newAppraisal = {
-                id: crypto.randomUUID(),
-                volunteerId: volunteer.id,
-                volunteerName: volunteer.name,
-                activityId: activityId,
-                activityName: activity ? activity.name : 'N/A',
-                passionIndexEffect: passionEffect,
-                newPassionIndex: newIndex,
-                oldPassionIndex: oldIndex,
-                comment: formData.get('comment'),
-                timestamp: new Date().toISOString()
-            };
-
-            const appraisals = getAppraisals();
-            appraisals.push(newAppraisal);
-            saveAppraisals(appraisals);
-
-            form.reset();
-            populateVolunteerDropdown();
-            // Show a friendlier success message
-            showMessageBox(`Index for ${volunteerName} updated! They feel the ${passionEffect >= 0 ? 'boost' : 'correction'}. New Index: ${newIndex}.`);
+            // Send appraisal to backend API
+            fetch('http://localhost:3000/api/appraisals', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    volunteerId: volunteerId,
+                    activityId: activityId,
+                    passionIndexEffect: passionEffect,
+                    comment: comment
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessageBox(data.error, true);
+                } else {
+                    // Trigger the Fun Animation!
+                    triggerPassionPowerUp(passionEffect);
+                    
+                    form.reset();
+                    populateVolunteerDropdown();
+                    // Show a friendlier success message
+                    showMessageBox(`Index for ${volunteerName} updated! They feel the ${passionEffect >= 0 ? 'boost' : 'correction'}. New Index: ${data.newPassionIndex}.`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessageBox("An error occurred during appraisal. Please try again.", true);
+            });
         }
 
         // --- Dynamic Dropdown Population (No change, just ensuring they work) ---
         function populateVolunteerDropdown() {
-            const volunteers = getVolunteers().filter(v => v.role !== 'planner');
-            const select = document.getElementById('volunteer-name-select');
-            
-            select.innerHTML = '<option value="" disabled selected>Select Volunteer</option>';
+            // Fetch volunteers from backend API
+            fetch('http://localhost:3000/api/volunteers')
+            .then(response => response.json())
+            .then(volunteers => {
+                const filteredVolunteers = volunteers.filter(v => v.role !== 'planner');
+                const select = document.getElementById('volunteer-name-select');
+                
+                select.innerHTML = '<option value="" disabled selected>Select Volunteer</option>';
 
-            volunteers.sort((a, b) => a.name.localeCompare(b.name)).forEach(v => {
-                const option = document.createElement('option');
-                option.value = v.name;
-                option.textContent = `${v.name} (PI: ${v.passionIndex})`;
-                select.appendChild(option);
+                filteredVolunteers.sort((a, b) => a.name.localeCompare(b.name)).forEach(v => {
+                    const option = document.createElement('option');
+                    option.value = v.name;
+                    option.textContent = `${v.name} (PI: ${v.passionIndex})`;
+                    option.dataset.id = v.id; // Store the ID in the option element
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching volunteers:', error);
             });
         }
         
         function populateActivityDropdown() {
-            const activities = getActivities();
-            const select = document.getElementById('activity-id-select');
-            
-            select.innerHTML = '<option value="" disabled selected>Select Activity</option>';
+            // Fetch activities from backend API
+            fetch('http://localhost:3000/api/activities')
+            .then(response => response.json())
+            .then(activities => {
+                const select = document.getElementById('activity-id-select');
+                
+                select.innerHTML = '<option value="" disabled selected>Select Activity</option>';
 
-            activities.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
-                const option = document.createElement('option');
-                option.value = a.id;
-                option.textContent = `${a.name} (${a.date})`;
-                select.appendChild(option);
+                activities.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
+                    const option = document.createElement('option');
+                    option.value = a.id;
+                    option.textContent = `${a.name} (${a.date})`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching activities:', error);
             });
         }
         
@@ -232,118 +246,76 @@
         });
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
-    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-sky-500" id="message-box-card">
-            <p id="message-box-text" class="text-lg font-semibold text-gray-800 mb-4"></p>
-            <button id="close-message-box" class="bg-sky-500 hover:bg-sky-600 text-white py-2 px-4 rounded-lg text-sm transition duration-150">
+<body>
+    <div id="message-box" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="glass-card glass-card--light w-80 text-center" id="message-box-card">
+            <p id="message-box-text" class="text-lg font-semibold text-slate-800 mb-4"></p>
+            <button id="close-message-box" class="btn btn-primary w-full justify-center">
                 OK
             </button>
         </div>
     </div>
     
-    <header class="bg-sky-600 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold text-white tracking-wide">🏆 Mission Control & Resources</h1>
-            <nav class="space-x-4 flex">
-                <a href="index.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Home</a>
-                <a href="dashboard.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Dashboard</a>
-                <a href="events.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Events</a>
-                <a href="admin.html" class="text-white bg-sky-700 hover:bg-sky-800 px-3 py-2 rounded-lg font-bold transition duration-150 shadow-md">Admin</a>
+    <header class="site-header">
+        <div class="nav-container">
+            <a class="brand-link" href="index.html">
+                <span class="brand-emblem"><i class="fa-solid fa-bicycle"></i></span>
+                <span>Ageless Bicyclists</span>
+            </a>
+            <nav class="nav-list">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="signup.html" class="nav-link">Join</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="events.html" class="nav-link">Events</a>
+                <a href="onboarding.html" class="nav-link nav-link--active">Resources</a>
+                <a href="admin.html" class="nav-link">Admin</a>
             </nav>
         </div>
     </header>
 
-    <div class="max-w-7xl mx-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow w-full">
-        
-        <div class="lg:col-span-2 space-y-8">
-            
-            <section class="bg-white p-6 rounded-xl shadow-2xl border-l-4 border-sky-500">
-                <h2 class="text-3xl font-extrabold text-sky-700 mb-2 flex items-center">
-                    <span class="mr-3 text-4xl">🚀</span> Volunteer Training Checklist
-                </h2>
-                <p class="text-gray-600 mb-6">Complete these missions to earn the "Fully Certified Volunteer" badge!</p>
-                
-                <ul class="space-y-3">
-                    <li id="resource-1" onclick="toggleResource('resource-1')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
-                        <input type="checkbox" id="check-1" class="hidden">
-                        <label for="check-1" class="flex-grow flex items-start space-x-3">
-                            <span class="text-xl pt-0.5">📜</span>
-                            <div>
-                                <p class="font-semibold text-gray-800">Review: Safety Protocol (V2.1)</p>
-                                <p class="text-sm text-gray-500">Master the basics of on-road safety and emergency response.</p>
-                            </div>
-                        </label>
-                        <span class="text-2xl text-green-500">✅</span>
-                    </li>
-                    
-                    <li id="resource-2" onclick="toggleResource('resource-2')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
-                        <input type="checkbox" id="check-2" class="hidden">
-                        <label for="check-2" class="flex-grow flex items-start space-x-3">
-                            <span class="text-xl pt-0.5">🔧</span>
-                            <div>
-                                <p class="font-semibold text-gray-800">Watch: Basic Bike Maintenance Video Series</p>
-                                <p class="text-sm text-gray-500">Learn quick fixes to keep the fun rolling!</p>
-                            </div>
-                        </label>
-                        <span class="text-2xl text-green-500">✅</span>
-                    </li>
-                    
-                    <li id="resource-3" onclick="toggleResource('resource-3')" class="flex items-center p-3 rounded-lg cursor-pointer transition duration-150 bg-gray-50 hover:bg-gray-100">
-                        <input type="checkbox" id="check-3" class="hidden">
-                        <label for="check-3" class="flex-grow flex items-start space-x-3">
-                            <span class="text-xl pt-0.5">🗺️</span>
-                            <div>
-                                <p class="font-semibold text-gray-800">Complete: Event Logistics Quiz</p>
-                                <p class="text-sm text-gray-500">Test your knowledge on setup and tear-down procedures.</p>
-                            </div>
-                        </label>
-                        <span class="text-2xl text-green-500">✅</span>
-                    </li>
-                    
-                </ul>
-            </section>
-            
-            <section class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-500">
-                <h2 class="text-3xl font-bold text-green-700 mb-4 flex items-center">
-                    <span class="mr-3 text-4xl">📘</span> Official Handbook
-                </h2>
-                <p class="text-gray-600">The master guide for our community. Download it, read it, live it!</p>
-                <a href="#" class="inline-block mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-lg transform hover:scale-[1.01] active:scale-[0.99] flex items-center w-full sm:w-auto justify-center">
-                    <span class="text-lg mr-2">⬇️</span> Download Full Handbook (PDF)
-                </a>
-            </section>
-        </div>
-        
-        <div class="lg:col-span-1 h-fit relative">
-            
-            <div id="passion-power-up-container" class="absolute inset-0 pointer-events-none">
+    <main class="page-shell">
+        <section class="hero-card">
+            <article class="space-y-5">
+                <span class="hero-eyebrow"><i class="fa-solid fa-graduation-cap"></i> Volunteer mission control</span>
+                <h1 class="hero-title">Train, calibrate, and celebrate every volunteer journey.</h1>
+                <p class="hero-summary">From quick-start checklists to passion power-ups, this is your hub for keeping the crew sharp and inspired.</p>
+                <div class="metric-ticker">
+                    <div class="metric-card">
+                        <span class="metric-label">Micro-training</span>
+                        <p class="text-sm text-slate-600 mt-2">Actionable tasks that unlock the “Fully Certified Volunteer” badge.</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Knowledge base</span>
+                        <p class="text-sm text-slate-600 mt-2">Downloadable guides and videos to support every role.</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Appraisal boosts</span>
+                        <p class="text-sm text-slate-600 mt-2">Update the Passion Index with feedback that matters.</p>
+                    </div>
                 </div>
-            
-            <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-red-500 relative z-10">
-                <h2 class="text-2xl font-extrabold text-red-700 mb-2 flex items-center">
-                    <span class="mr-2 text-3xl">🔥</span> Passion Index Adjuster
-                </h2>
-                <p class="text-sm text-gray-600 mb-4">Admin Tool: Calibrate a volunteer's Passion Index based on their latest mission performance.</p>
-                
-                <form id="appraisal-form" class="space-y-4">
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Volunteer:</span>
-                        <select id="volunteer-name-select" name="volunteer-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white focus:ring-red-500 focus:border-red-500 transition duration-150">
+            </article>
+
+            <article class="glass-card glass-card--light relative">
+                <div id="passion-power-up-container" class="absolute inset-0 pointer-events-none"></div>
+                <span class="tag"><i class="fa-solid fa-fire"></i> Passion Index adjuster</span>
+                <h2 class="mt-4 text-2xl font-extrabold text-slate-900">Apply a performance boost</h2>
+                <p class="text-slate-600 mt-2">Record mission feedback to fine-tune each volunteer’s Passion Index.</p>
+                <form id="appraisal-form" class="space-y-4 mt-6">
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Volunteer</span>
+                        <select id="volunteer-name-select" name="volunteer-name" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400">
                             <option value="" disabled selected>Select Volunteer (Current PI)</option>
                         </select>
                     </label>
-                    
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Mission Completed:</span>
-                        <select id="activity-id-select" name="activity-id" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white focus:ring-red-500 focus:border-red-500 transition duration-150">
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Mission completed</span>
+                        <select id="activity-id-select" name="activity-id" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400">
                             <option value="" disabled selected>Select Activity</option>
                         </select>
                     </label>
-
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Index Effect:</span>
-                        <select name="passion-effect" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 bg-white font-bold text-center focus:ring-red-500 focus:border-red-500 transition duration-150">
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Index effect</span>
+                        <select name="passion-effect" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 font-semibold text-center focus:outline-none focus:ring-2 focus:ring-red-400">
                             <option value="10" class="text-green-600">+10 🔥 Legendary Performance!</option>
                             <option value="5" class="text-green-500">+5 Great Job!</option>
                             <option value="0" selected class="text-gray-600">0 Standard Mission Success</option>
@@ -351,23 +323,68 @@
                             <option value="-10" class="text-red-600">-10 Major Issue</option>
                         </select>
                     </label>
-                    
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Appraisal Notes (The 'Why'):</span>
-                        <textarea name="comment" rows="3" placeholder="Provide feedback to justify the index change..." class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-red-500 focus:border-red-500 transition duration-150"></textarea>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Appraisal notes</span>
+                        <textarea name="comment" rows="3" placeholder="Provide feedback to justify the index change..." class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400"></textarea>
                     </label>
-                    
-                    <button type="submit" class="w-full bg-red-500 hover:bg-red-700 text-white font-extrabold py-3 px-4 rounded-xl transition duration-200 shadow-lg transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center">
-                        <span class="mr-2 text-xl">⚡</span> APPLY PASSION POWER-UP
+                    <button type="submit" class="btn btn-primary w-full justify-center bg-red-500 hover:bg-red-600">
+                        <i class="fa-solid fa-bolt"></i> Apply passion power-up
                     </button>
                 </form>
-            </div>
-        </div>
-        
-    </div>
+            </article>
+        </section>
 
-    <footer class="bg-gray-800 text-white text-center py-4 mt-auto text-sm">
-        &copy; 2025 Ageless Bicyclists | Mission Control Dashboard
+        <section class="glass-card glass-card--light">
+            <span class="tag"><i class="fa-solid fa-check-double"></i> Training checklist</span>
+            <h2 class="mt-3 text-3xl font-extrabold text-slate-900">Complete these quests to earn certification</h2>
+            <p class="text-slate-600 mt-2">Mark items as you complete them; your progress is saved locally for easy follow-ups.</p>
+            <ul class="space-y-3 mt-6">
+                <li id="resource-1" onclick="toggleResource('resource-1')" class="flex items-center p-3 rounded-xl cursor-pointer transition duration-150 bg-slate-50 hover:bg-slate-100">
+                    <input type="checkbox" id="check-1" class="hidden">
+                    <label for="check-1" class="flex-grow flex items-start gap-3">
+                        <span class="text-2xl">�</span>
+                        <div>
+                            <p class="font-semibold text-slate-800">Review: Safety Protocol (V2.1)</p>
+                            <p class="text-sm text-slate-500">Master the basics of on-road safety and emergency response.</p>
+                        </div>
+                    </label>
+                    <span class="text-2xl text-emerald-500">✅</span>
+                </li>
+                <li id="resource-2" onclick="toggleResource('resource-2')" class="flex items-center p-3 rounded-xl cursor-pointer transition duration-150 bg-slate-50 hover:bg-slate-100">
+                    <input type="checkbox" id="check-2" class="hidden">
+                    <label for="check-2" class="flex-grow flex items-start gap-3">
+                        <span class="text-2xl">🔧</span>
+                        <div>
+                            <p class="font-semibold text-slate-800">Watch: Basic Bike Maintenance series</p>
+                            <p class="text-sm text-slate-500">Learn quick fixes to keep the fun rolling.</p>
+                        </div>
+                    </label>
+                    <span class="text-2xl text-emerald-500">✅</span>
+                </li>
+                <li id="resource-3" onclick="toggleResource('resource-3')" class="flex items-center p-3 rounded-xl cursor-pointer transition duration-150 bg-slate-50 hover:bg-slate-100">
+                    <input type="checkbox" id="check-3" class="hidden">
+                    <label for="check-3" class="flex-grow flex items-start gap-3">
+                        <span class="text-2xl">🗺️</span>
+                        <div>
+                            <p class="font-semibold text-slate-800">Complete: Event logistics mini-quiz</p>
+                            <p class="text-sm text-slate-500">Test your knowledge on setup and tear-down procedures.</p>
+                        </div>
+                    </label>
+                    <span class="text-2xl text-emerald-500">✅</span>
+                </li>
+            </ul>
+        </section>
+
+        <section class="glass-card glass-card--light flex flex-col gap-4">
+            <span class="tag"><i class="fa-solid fa-book-open"></i> Official handbook</span>
+            <h2 class="text-3xl font-extrabold text-slate-900">Download the playbook</h2>
+            <p class="text-slate-600">The master guide for our community. Download it, read it, live it!</p>
+            <a href="#" class="btn btn-primary w-full sm:w-auto justify-center"><i class="fa-solid fa-download"></i> Download full handbook (PDF)</a>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        &copy; 2025 Ageless Bicyclists · Mission control dashboard
     </footer>
 </body>
 </html>

@@ -1,21 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Volunteer Sign Up</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMDJ8C+a5+q9gW76j42N71nB4mE/2/j6k9N7r+A2hV9eY8c6F8p6E6aN/F4aA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="../style/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Custom scrollbar for a cleaner look */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f0f4f8; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        ::-webkit-scrollbar-track { background: rgba(15,23,42,0.15); }
+        ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.6); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.85); }
     </style>
     <script>
         const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
         const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'; // Key to store the ID of the last signed-up user
+
+        function initResponsiveNav() {
+            const navContainer = document.querySelector('.nav-container');
+            const toggle = document.querySelector('.nav-toggle');
+            const navList = document.getElementById('primary-navigation');
+            if (!navContainer || !toggle || !navList) return;
+
+            const toggleIcon = toggle.querySelector('i');
+
+            const closeMenu = () => {
+                navContainer.dataset.menuOpen = 'false';
+                toggle.setAttribute('aria-expanded', 'false');
+                if (toggleIcon) {
+                    toggleIcon.classList.add('fa-bars');
+                    toggleIcon.classList.remove('fa-xmark');
+                }
+            };
+
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const isOpen = navContainer.dataset.menuOpen === 'true';
+                const nextState = !isOpen;
+                navContainer.dataset.menuOpen = String(nextState);
+                toggle.setAttribute('aria-expanded', String(nextState));
+                if (toggleIcon) {
+                    toggleIcon.classList.toggle('fa-bars', !nextState);
+                    toggleIcon.classList.toggle('fa-xmark', nextState);
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!navContainer.contains(event.target)) {
+                    closeMenu();
+                }
+            });
+
+            navList.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('click', () => closeMenu());
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 640) {
+                    closeMenu();
+                }
+            });
+
+            closeMenu();
+        }
 
         // --- Role Data for Interactive Selector ---
         // NOTE: The keys must match the dashboard's HERO_ROLES keys!
@@ -99,40 +148,45 @@
             const name = formData.get('name').trim();
             const email = formData.get('email').trim();
             const role = formData.get('role'); 
+            const skills = formData.get('skills') ? formData.get('skills').split(',').map(skill => skill.trim()) : [];
+            const commitmentPreferences = formData.get('commitment');
 
             if (!name || !email || !role) {
                 showMessageBox("Whoops! Please ensure your Name, Email, and a **Role** are selected.", true);
                 return;
             }
 
-            let volunteers = getVolunteers();
-
-            if (volunteers.some(v => v && v.email && v.email.toLowerCase() === email.toLowerCase())) {
-                showMessageBox("This email is already registered. Have you checked the Dashboard?", true);
-                return;
-            }
-            
-            const newId = crypto.randomUUID();
-
-            const newVolunteer = {
-                id: newId, 
-                name: name,
-                email: email,
-                role: role, // This key holds the selected hero role
-                passionIndex: 50,
-                assignedActivityId: null 
-            };
-
-            volunteers.push(newVolunteer);
-            saveVolunteers(volunteers);
-            
-            // --- CRITICAL STEP: Store the ID of the newly created user ---
-            localStorage.setItem(CURRENT_USER_ID_KEY, newId);
-            // -------------------------------------------------------------
-            
-            form.reset();
-            selectRole(null); 
-            showMessageBox(`🎉 Welcome, ${name}! You've joined as a ${ROLE_DATA[role].name}. You can now view the Dashboard.`);
+            // Send data to backend API
+            fetch('http://localhost:3000/api/volunteers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    role: role,
+                    commitmentPreferences: commitmentPreferences,
+                    skills: skills
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessageBox(data.error, true);
+                } else {
+                    // Store the new volunteer ID in localStorage
+                    localStorage.setItem(CURRENT_USER_ID_KEY, data.id);
+                    
+                    form.reset();
+                    selectRole(null); 
+                    showMessageBox(`🎉 Welcome, ${name}! You've joined as a ${ROLE_DATA[role].name}. You can now view the Dashboard.`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessageBox("An error occurred during registration. Please try again.", true);
+            });
         }
 
         // --- Interactive Role Selection Logic ---
@@ -185,97 +239,130 @@
             });
 
             selectRole(null);
+            initResponsiveNav();
         });
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
-    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-sky-500" id="message-box-card">
-            <p id="message-box-text" class="text-lg font-semibold text-gray-800 mb-4"></p>
-            <button id="message-box-button" class="bg-sky-500 hover:bg-sky-600 text-white py-2 px-4 rounded-lg text-sm transition duration-150">
-                Got It!
-            </button>
+<body>
+    <div id="message-box" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="glass-card glass-card--light w-80 text-center" id="message-box-card">
+            <p id="message-box-text" class="text-lg font-semibold text-slate-800 mb-4"></p>
+            <button id="message-box-button" class="btn btn-primary w-full justify-center">Got it!</button>
         </div>
     </div>
 
-    <header class="bg-sky-600 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold text-white tracking-wide">✨ Ageless Bicyclists Volunteer</h1>
-            <nav class="space-x-4 flex">
-                <a href="index.html" class="text-white bg-sky-700 hover:bg-sky-800 px-3 py-2 rounded-lg font-bold transition duration-150 shadow-md">Sign Up</a>
-                <a href="dashboard.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Dashboard</a>
-                <a href="events.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Events</a>
-                <a href="admin.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Admin</a>
+    <header class="site-header">
+        <div class="nav-container" data-menu-open="false">
+            <a class="brand-link" href="index.html">
+                <span class="brand-emblem"><i class="fa-solid fa-bicycle"></i></span>
+                <span>Ageless Bicyclists</span>
+            </a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation">
+                <span class="sr-only">Toggle navigation</span>
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <nav id="primary-navigation" class="nav-list">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="signup.html" class="nav-link nav-link--active">Join</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="events.html" class="nav-link">Events</a>
+                <a href="onboarding.html" class="nav-link">Resources</a>
+                <a href="admin.html" class="nav-link">Admin</a>
             </nav>
         </div>
     </header>
 
-    <div class="flex-grow flex items-center justify-center p-4">
-        <div class="w-full max-w-2xl bg-white p-8 rounded-xl shadow-2xl border-t-4 border-sky-500">
-            <h2 class="text-4xl font-extrabold text-sky-700 mb-2">Pedal Up! Sign In as a Hero. 🦸</h2>
-            <p class="text-gray-600 mb-8">Join our community and select the mission you're most passionate about!</p>
-            
-            <form id="signup-form" class="space-y-8">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Full Name</span>
-                        <input type="text" name="name" required placeholder="Jane Doe" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-sky-500 focus:border-sky-500 transition duration-150">
-                    </label>
-                    
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Email Address</span>
-                        <input type="email" name="email" required placeholder="jane.doe@example.com" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-3 focus:ring-sky-500 focus:border-sky-500 transition duration-150">
-                    </label>
-                </div>
+    <main class="page-shell">
+        <section class="hero-card">
+            <article class="space-y-6">
+                <span class="hero-eyebrow"><i class="fa-solid fa-seedling"></i> Welcome to the crew</span>
+                <h1 class="hero-title">Pedal up and become a neighbourhood hero.</h1>
+                <p class="hero-summary">Tell us a little about yourself, pick the mission lane that excites you, and we’ll get you rolling with the perfect volunteer match.</p>
 
-                <div>
-                    <span class="text-gray-700 font-semibold block mb-3">Choose Your Hero Role 🌟</span>
-                    <input type="hidden" name="role" id="selected-role-input" required> 
-                    
-                    <div class="grid grid-cols-2 gap-4">
-                        
-                        <div id="role-cycling-buddy" onclick="selectRole('cycling-buddy')" 
-                             class="role-button flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition duration-300 transform hover:scale-[1.03] hover:shadow-lg bg-white border-gray-300 hover:border-sky-400">
-                            <span class="text-4xl mb-2">🚴‍♀️</span>
-                            <span class="font-bold text-sm text-gray-800 text-center">Cycling Buddy</span>
-                        </div>
-
-                        <div id="role-logistics-support" onclick="selectRole('logistics-support')" 
-                             class="role-button flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition duration-300 transform hover:scale-[1.03] hover:shadow-lg bg-white border-gray-300 hover:border-sky-400">
-                            <span class="text-4xl mb-2">📦</span>
-                            <span class="font-bold text-sm text-gray-800 text-center">Logistics Pro</span>
-                        </div>
-
-                        <div id="role-mechanic" onclick="selectRole('mechanic')" 
-                             class="role-button flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition duration-300 transform hover:scale-[1.03] hover:shadow-lg bg-white border-gray-300 hover:border-sky-400">
-                            <span class="text-4xl mb-2">🔧</span>
-                            <span class="font-bold text-sm text-gray-800 text-center">Bike Mechanic</span>
-                        </div>
-
-                        <div id="role-planner" onclick="selectRole('planner')" 
-                             class="role-button flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition duration-300 transform hover:scale-[1.03] hover:shadow-lg bg-white border-gray-300 hover:border-sky-400">
-                            <span class="text-4xl mb-2">🗓️</span>
-                            <span class="font-bold text-sm text-gray-800 text-center">Senior Planner</span>
-                        </div>
+                <div class="cards-grid">
+                    <div class="card-item">
+                        <i class="fa-solid fa-stopwatch-20 text-2xl text-sky-500"></i>
+                        <h3 class="mt-3 text-lg font-semibold">5-minute registration</h3>
+                        <p class="text-sm text-slate-600">We only ask for the essentials to build your volunteer profile.</p>
+                    </div>
+                    <div class="card-item">
+                        <i class="fa-solid fa-hand-holding-heart text-2xl text-sky-500"></i>
+                        <h3 class="mt-3 text-lg font-semibold">Personalized missions</h3>
+                        <p class="text-sm text-slate-600">Your skills and availability help us surface the best events.</p>
+                    </div>
+                    <div class="card-item">
+                        <i class="fa-solid fa-award text-2xl text-sky-500"></i>
+                        <h3 class="mt-3 text-lg font-semibold">Track your Passion Index</h3>
+                        <p class="text-sm text-slate-600">Earn recognition as you complete rides, clinics, and mentorships.</p>
                     </div>
                 </div>
+            </article>
 
-                <div id="role-description" class="p-4 bg-gray-100 border border-gray-200 rounded-lg transition duration-300">
+            <article class="glass-card glass-card--light">
+                <span class="tag"><i class="fa-solid fa-id-card-clip"></i> Volunteer signup</span>
+                <h2 class="mt-4 text-3xl font-extrabold text-slate-900">Your details</h2>
+                <p class="text-slate-600 mt-2">All volunteers start with a Passion Index of 50—watch it grow as you bring mobility and joy to our seniors.</p>
+
+                <form id="signup-form" class="space-y-7 mt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Full name</span>
+                            <input type="text" name="name" required placeholder="Jane Doe" class="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
+                        <label class="space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Email address</span>
+                            <input type="email" name="email" required placeholder="jane.doe@example.com" class="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
                     </div>
-                <p class="text-sm text-gray-500 pt-2 text-center">
-                    Upon registration, you receive an initial **Passion Index** of **50**! This index is a fun way to track your impact.
-                </p>
 
-                <button type="submit" class="w-full bg-sky-500 hover:bg-sky-700 text-white font-extrabold py-4 px-4 rounded-xl transition duration-200 shadow-lg transform hover:scale-[1.01] active:scale-[0.99] text-lg tracking-wider">
-                    <span class="inline-block mr-2">🚀</span> COMPLETE REGISTRATION AND START MISSION
-                </button>
-            </form>
-        </div>
-    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Skills (comma separated)</span>
+                            <input type="text" name="skills" placeholder="Biking, Communication, Bike repair" class="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
+                        <label class="space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Commitment preferences</span>
+                            <input type="text" name="commitment" placeholder="Weekends, mornings" class="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
+                    </div>
 
-    <footer class="bg-gray-800 text-white text-center py-4 mt-auto text-sm">
-        &copy; 2025 Ageless Bicyclists | Fueled by Passion and Pedals
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <span class="text-sm font-semibold text-slate-700 uppercase tracking-wider">Choose your hero role</span>
+                            <span class="text-xs text-slate-500">Tap a tile to learn more</span>
+                        </div>
+                        <input type="hidden" name="role" id="selected-role-input" required>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div id="role-cycling-buddy" onclick="selectRole('cycling-buddy')" class="role-button flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-4 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+                                <span class="text-4xl">🚴‍♀️</span>
+                                <span class="font-semibold text-sm text-slate-800">Cycling Buddy</span>
+                            </div>
+                            <div id="role-logistics-support" onclick="selectRole('logistics-support')" class="role-button flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-4 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+                                <span class="text-4xl">📦</span>
+                                <span class="font-semibold text-sm text-slate-800">Logistics Pro</span>
+                            </div>
+                            <div id="role-mechanic" onclick="selectRole('mechanic')" class="role-button flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-4 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+                                <span class="text-4xl">🔧</span>
+                                <span class="font-semibold text-sm text-slate-800">Bike Mechanic</span>
+                            </div>
+                            <div id="role-planner" onclick="selectRole('planner')" class="role-button flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/90 p-4 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+                                <span class="text-4xl">🗓️</span>
+                                <span class="font-semibold text-sm text-slate-800">Senior Planner</span>
+                            </div>
+                        </div>
+                        <div id="role-description" class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-full justify-center text-base">
+                        <span class="inline-flex items-center gap-2"><i class="fa-solid fa-rocket"></i> Complete registration & start your mission</span>
+                    </button>
+                </form>
+            </article>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        &copy; 2025 Ageless Bicyclists · Fueled by passion and pedals.
     </footer>
 </body>
 </html>

@@ -6,6 +6,7 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .calendar-cell {
@@ -22,6 +23,54 @@
         const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
         const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
         const APPRAISALS_STORAGE_KEY = 'AB_APPRAISALS'; 
+
+        function initResponsiveNav() {
+            const navContainer = document.querySelector('.nav-container');
+            const toggle = document.querySelector('.nav-toggle');
+            const navList = document.getElementById('primary-navigation');
+            if (!navContainer || !toggle || !navList) return;
+
+            const toggleIcon = toggle.querySelector('i');
+
+            const closeMenu = () => {
+                navContainer.dataset.menuOpen = 'false';
+                toggle.setAttribute('aria-expanded', 'false');
+                if (toggleIcon) {
+                    toggleIcon.classList.add('fa-bars');
+                    toggleIcon.classList.remove('fa-xmark');
+                }
+            };
+
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const isOpen = navContainer.dataset.menuOpen === 'true';
+                const nextState = !isOpen;
+                navContainer.dataset.menuOpen = String(nextState);
+                toggle.setAttribute('aria-expanded', String(nextState));
+                if (toggleIcon) {
+                    toggleIcon.classList.toggle('fa-bars', !nextState);
+                    toggleIcon.classList.toggle('fa-xmark', nextState);
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!navContainer.contains(event.target)) {
+                    closeMenu();
+                }
+            });
+
+            navList.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('click', () => closeMenu());
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 640) {
+                    closeMenu();
+                }
+            });
+
+            closeMenu();
+        }
 
         // State for the calendar view
         let currentCalendarDate = new Date();
@@ -65,23 +114,38 @@
             const form = e.target;
             const formData = new FormData(form);
             
+            // Create new activity object
             const newActivity = {
-                id: crypto.randomUUID(),
                 name: formData.get('activity-name'),
                 roleNeeded: formData.get('role-needed'),
                 date: formData.get('activity-date'),
                 requiredVolunteers: parseInt(formData.get('required-vols')),
-                assignedVolunteerIds: [],
+                description: formData.get('activity-description') || ''
             };
             
-            const activities = getActivities();
-            activities.push(newActivity);
-            localStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities));
-            
-            form.reset();
-            renderAllocationDashboard(); 
-            renderCalendar(currentCalendarDate); // Refresh calendar
-            showMessageBox('New Activity Added! Check the Calendar and Allocation Tool.');
+            // Send new activity to backend API
+            fetch('http://localhost:3000/api/activities', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newActivity)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessageBox(data.error, true);
+                } else {
+                    form.reset();
+                    renderAllocationDashboard(); 
+                    renderCalendar(currentCalendarDate); // Refresh calendar
+                    showMessageBox('New Activity Added! Check the Calendar and Allocation Tool.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessageBox("An error occurred while adding the activity. Please try again.", true);
+            });
         }
 
         // Custom Message Box function (replacing alert())
@@ -189,136 +253,184 @@
 
         // --- Allocation & Sorting Logic ---
         function renderAllocationDashboard() {
-            const activities = getActivities();
-            let volunteers = getVolunteers();
-
-            const allocationList = document.getElementById('allocation-list');
-            const leaderboardBody = document.getElementById('leaderboard-body');
-            
-            // 1. Render Allocation List
-            if (allocationList) {
-                // Filter out fully staffed activities
-                const pendingActivities = activities.filter(a => a.assignedVolunteerIds.length < a.requiredVolunteers);
-                
-                allocationList.innerHTML = pendingActivities.map(activity => {
-                    const filled = activity.assignedVolunteerIds.length;
-                    const remaining = activity.requiredVolunteers - filled;
+            // Fetch activities from backend API
+            fetch('http://localhost:3000/api/activities')
+            .then(response => response.json())
+            .then(activities => {
+                // Fetch volunteers from backend API
+                fetch('http://localhost:3000/api/volunteers')
+                .then(response => response.json())
+                .then(volunteers => {
+                    const allocationList = document.getElementById('allocation-list');
+                    const leaderboardBody = document.getElementById('leaderboard-body');
                     
-                    return `
-                        <li class="bg-gray-100 p-4 rounded-lg flex justify-between items-center shadow-sm">
-                            <div>
-                                <p class="text-lg font-bold text-sky-700">${activity.name} (${activity.date})</p>
-                                <p class="text-sm text-gray-500">Role: ${activity.roleNeeded.charAt(0).toUpperCase() + activity.roleNeeded.slice(1).replace('-', ' ')}</p>
-                                <p class="text-sm text-gray-500 mt-1">Needed: ${activity.requiredVolunteers} | Filled: ${filled} | Remaining: <span class="font-semibold text-red-600">${remaining}</span></p>
-                            </div>
-                            <button onclick="autoAllocate('${activity.id}', '${activity.roleNeeded}')" 
-                                class="bg-sky-500 hover:bg-sky-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50"
-                                ${remaining === 0 ? 'disabled' : ''}>
-                                Auto-Allocate ${remaining}
-                            </button>
-                        </li>
-                    `;
-                }).join('') || '<p class="text-center text-gray-500 mt-4">All activities are fully staffed!</p>';
-            }
-            
-            // 2. Render Leaderboard (sorted by Passion Index)
-            if (leaderboardBody) {
-                // Sorting logic: Primary sort by Passion Index (desc), Secondary by name (asc)
-                const sortedVolunteers = [...volunteers]
-                    .filter(v => v.role !== 'planner') // Exclude senior planners from general allocation pool
-                    .sort((a, b) => b.passionIndex - a.passionIndex || a.name.localeCompare(b.name));
+                    // 1. Render Allocation List
+                    if (allocationList) {
+                        // Filter out fully staffed activities
+                        const pendingActivities = activities.filter(a => a.assignedVolunteerIds.length < a.requiredVolunteers);
+                        
+                        allocationList.innerHTML = pendingActivities.map(activity => {
+                            const filled = activity.assignedVolunteerIds.length;
+                            const remaining = activity.requiredVolunteers - filled;
+                            
+                            return `
+                                <li class="bg-gray-100 p-4 rounded-lg flex justify-between items-center shadow-sm">
+                                    <div>
+                                        <p class="text-lg font-bold text-sky-700">${activity.name} (${activity.date})</p>
+                                        <p class="text-sm text-gray-500">Role: ${activity.roleNeeded.charAt(0).toUpperCase() + activity.roleNeeded.slice(1).replace('-', ' ')}</p>
+                                        <p class="text-sm text-gray-500 mt-1">Needed: ${activity.requiredVolunteers} | Filled: ${filled} | Remaining: <span class="font-semibold text-red-600">${remaining}</span></p>
+                                    </div>
+                                    <button onclick="autoAllocate('${activity.id}', '${activity.roleNeeded}')" 
+                                        class="bg-sky-500 hover:bg-sky-700 text-white text-sm font-bold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50"
+                                        ${remaining === 0 ? 'disabled' : ''}>
+                                        Auto-Allocate ${remaining}
+                                    </button>
+                                </li>
+                            `;
+                        }).join('') || '<p class="text-center text-gray-500 mt-4">All activities are fully staffed!</p>';
+                    }
+                    
+                    // 2. Render Leaderboard (sorted by Passion Index)
+                    if (leaderboardBody) {
+                        // Sorting logic: Primary sort by Passion Index (desc), Secondary by name (asc)
+                        const sortedVolunteers = [...volunteers]
+                            .filter(v => v.role !== 'planner') // Exclude senior planners from general allocation pool
+                            .sort((a, b) => b.passionIndex - a.passionIndex || a.name.localeCompare(b.name));
 
-                leaderboardBody.innerHTML = sortedVolunteers.map((v, index) => `
-                    <tr class="hover:bg-gray-50 border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${v.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-sky-600 font-bold">${v.passionIndex}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${v.assignedActivityId ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                ${v.assignedActivityId ? 'Assigned' : 'Available'}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">${v.role.charAt(0).toUpperCase() + v.role.slice(1).replace('-', ' ')}</td>
-                    </tr>
-                `).join('');
-            }
+                        leaderboardBody.innerHTML = sortedVolunteers.map((v, index) => `
+                            <tr class="hover:bg-gray-50 border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${v.name}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-sky-60 font-bold">${v.passionIndex}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${v.assignedActivityId ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                                        ${v.assignedActivityId ? 'Assigned' : 'Available'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">${v.role.charAt(0).toUpperCase() + v.role.slice(1).replace('-', ' ')}</td>
+                            </tr>
+                        `).join('');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching volunteers:', error);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching activities:', error);
+            });
         }
         
         // --- Render Appraisals ---
         function renderAppraisals() {
-            const appraisals = getAppraisals();
-            const appraisalBody = document.getElementById('appraisal-body');
-            const activities = getActivities();
-            
-            const activityMap = activities.reduce((map, activity) => {
-                map[activity.id] = activity.name;
-                return map;
-            }, {});
+            // Fetch appraisals from backend API
+            fetch('http://localhost:3000/api/appraisals')
+            .then(response => response.json())
+            .then(appraisals => {
+                const appraisalBody = document.getElementById('appraisal-body');
+                
+                // Fetch activities from backend API to get activity names
+                fetch('http://localhost:3000/api/activities')
+                .then(response => response.json())
+                .then(activities => {
+                    const activityMap = activities.reduce((map, activity) => {
+                        map[activity.id] = activity.name;
+                        return map;
+                    }, {});
 
-            if (appraisalBody) {
-                if (appraisals.length === 0) {
-                    appraisalBody.innerHTML = `
-                        <tr>
-                            <td colspan="5" class="px-6 py-4 text-center text-gray-500">No volunteer appraisals submitted yet.</td>
-                        </tr>
-                    `;
-                    return;
-                }
+                    if (appraisalBody) {
+                        if (appraisals.length === 0) {
+                            appraisalBody.innerHTML = `
+                                <tr>
+                                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">No volunteer appraisals submitted yet.</td>
+                                </tr>
+                            `;
+                            return;
+                        }
 
-                appraisalBody.innerHTML = appraisals.slice().reverse().map((a) => {
-                    const activityName = activityMap[a.activityId] || 'Unknown Activity';
-                    const effectClass = a.passionIndexEffect >= 0 ? 'text-green-700' : 'text-red-700';
-                    return `
-                        <tr class="hover:bg-gray-50 border-b">
-                            <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${a.volunteerName}</td>
-                            <td class="px-6 py-3 whitespace-nowrap text-sm text-sky-600">${activityName}</td>
-                            <td class="px-6 py-3 whitespace-nowrap text-sm text-center font-bold ${effectClass}">${a.passionIndexEffect}</td>
-                            <td class="px-6 py-3 text-sm max-w-xs truncate">${a.comment || 'No comment'}</td>
-                            <td class="px-6 py-3 whitespace-nowrap text-xs text-gray-500">${formatTimestamp(a.timestamp)}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
+                        appraisalBody.innerHTML = appraisals.slice().reverse().map((a) => {
+                            const activityName = activityMap[a.activityId] || 'Unknown Activity';
+                            const effectClass = a.passionIndexEffect >= 0 ? 'text-green-700' : 'text-red-700';
+                            return `
+                                <tr class="hover:bg-gray-50 border-b">
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${a.volunteerName}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm text-sky-60">${activityName}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap text-sm text-center font-bold ${effectClass}">${a.passionIndexEffect}</td>
+                                    <td class="px-6 py-3 text-sm max-w-xs truncate">${a.comment || 'No comment'}</td>
+                                    <td class="px-6 py-3 whitespace-nowrap text-xs text-gray-500">${formatTimestamp(a.timestamp)}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching activities:', error);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching appraisals:', error);
+            });
         }
 
         window.autoAllocate = function(activityId, roleNeeded) {
-            let volunteers = getVolunteers();
-            let activities = getActivities();
-            
-            const activity = activities.find(a => a.id === activityId);
-            if (!activity) return;
+            // Fetch volunteers from backend API
+            fetch('http://localhost:3000/api/volunteers')
+            .then(response => response.json())
+            .then(volunteers => {
+                // Fetch activities from backend API
+                fetch(`http://localhost:3000/api/activities/${activityId}`)
+                .then(response => response.json())
+                .then(activity => {
+                    const remaining = activity.requiredVolunteers - activity.assignedVolunteerIds.length;
+                    if (remaining <= 0) return;
 
-            const remaining = activity.requiredVolunteers - activity.assignedVolunteerIds.length;
-            if (remaining <= 0) return;
+                    // Find the best available volunteers matching the role, sorted by passion
+                    const suitableVolunteers = volunteers
+                        .filter(v => v.role === roleNeeded && !v.assignedActivityId)
+                        .sort((a, b) => b.passionIndex - a.passionIndex);
 
-            // Find the best available volunteers matching the role, sorted by passion
-            const suitableVolunteers = volunteers
-                .filter(v => v.role === roleNeeded && !v.assignedActivityId)
-                .sort((a, b) => b.passionIndex - a.passionIndex);
+                    const volunteersToAssign = suitableVolunteers.slice(0, remaining);
 
-            const volunteersToAssign = suitableVolunteers.slice(0, remaining);
+                    if (volunteersToAssign.length === 0) {
+                        showMessageBox(`No available ${roleNeeded} volunteers to assign for this activity.`, true);
+                        return;
+                    }
 
-            if (volunteersToAssign.length === 0) {
-                showMessageBox(`No available ${roleNeeded} volunteers to assign for this activity.`, true);
-                return;
-            }
+                    // Perform Assignment for each volunteer
+                    let assignedCount = 0;
+                    volunteersToAssign.forEach(volunteer => {
+                        // Make registration request for each volunteer
+                        fetch(`http://localhost:3000/api/activities/${activityId}/register/${volunteer.id}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                console.error(`Error assigning volunteer ${volunteer.name}:`, data.error);
+                            } else {
+                                assignedCount++;
+                            }
 
-            // Perform Assignment
-            volunteersToAssign.forEach(v => {
-                // 1. Update Volunteer Record
-                const volunteerIndex = volunteers.findIndex(vA => vA.id === v.id);
-                if (volunteerIndex !== -1) {
-                    volunteers[volunteerIndex].assignedActivityId = activityId;
-                }
-                
-                // 2. Update Activity Record
-                activity.assignedVolunteerIds.push(v.id);
+                            // When all assignments are processed, update the UI
+                            if (assignedCount === volunteersToAssign.length) {
+                                showMessageBox(`${assignedCount} volunteers successfully allocated to ${activity.name}!`);
+                                renderAllocationDashboard(); // Refresh UI
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error during assignment:', error);
+                        });
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching activity:', error);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching volunteers:', error);
             });
-            
-            localStorage.setItem(VOLUNTEERS_STORAGE_KEY, JSON.stringify(volunteers));
-            localStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities));
-
-            showMessageBox(`${volunteersToAssign.length} volunteers successfully allocated to ${activity.name}!`);
-            renderAllocationDashboard(); // Refresh UI
         }
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -339,140 +451,168 @@
         });
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
-    <!-- Message Box (replaces alert()) -->
-    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-6 rounded-xl shadow-2xl w-80 text-center border-t-4 border-green-500" id="message-box-card">
-            <p id="message-box-text" class="text-lg font-semibold text-gray-800 mb-4"></p>
-            <button id="close-message-box" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg text-sm">
-                OK
-            </button>
+<body>
+    <div id="message-box" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="glass-card glass-card--light w-80 text-center" id="message-box-card">
+            <p id="message-box-text" class="text-lg font-semibold text-slate-800 mb-4"></p>
+            <button id="close-message-box" class="btn btn-primary w-full justify-center">OK</button>
         </div>
     </div>
     
-    <!-- Header: Updated Navbar (Resources included, Admin is active) -->
-    <header class="bg-sky-600 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-extrabold text-white tracking-wide">⚙️ Admin Dashboard</h1>
-            <nav class="space-x-4 flex">
-                <a href="index.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Home</a>
-                <a href="onboarding.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Resources</a>
-                <a href="dashboard.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Dashboard</a>
-                <a href="events.html" class="text-white hover:text-sky-200 px-3 py-2 rounded-md font-medium transition duration-150">Events</a>
-                <a href="admin.html" class="text-white bg-sky-700 hover:bg-sky-800 px-3 py-2 rounded-lg font-bold transition duration-150 shadow-md">Admin</a>
+    <header class="site-header">
+        <div class="nav-container">
+            <a class="brand-link" href="index.html">
+                <span class="brand-emblem"><i class="fa-solid fa-bicycle"></i></span>
+                <span>Ageless Bicyclists</span>
+            </a>
+            <nav class="nav-list">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="signup.html" class="nav-link">Join</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="events.html" class="nav-link">Events</a>
+                <a href="onboarding.html" class="nav-link">Resources</a>
+                <a href="admin.html" class="nav-link nav-link--active">Admin</a>
             </nav>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <div class="max-w-7xl mx-auto p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
-        <!-- Section 1: New Activity Form (CRUD Create for Activities) -->
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-sky-500 lg:col-span-1 h-fit">
-            <h2 class="text-2xl font-bold text-sky-700 mb-4">1. New Activity Entry</h2>
-            <form id="activity-form" class="space-y-4">
-                <label class="block">
-                    <span class="text-gray-700 font-semibold">Activity Name:</span>
-                    <input type="text" name="activity-name" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2">
-                </label>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Date:</span>
-                        <input type="date" name="activity-date" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2">
-                    </label>
-                    <label class="block">
-                        <span class="text-gray-700 font-semibold">Volunteers Needed:</span>
-                        <input type="number" name="required-vols" min="1" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2">
-                    </label>
+    <main class="page-shell">
+        <section class="hero-card">
+            <div class="space-y-5">
+                <span class="hero-eyebrow"><i class="fa-solid fa-screwdriver-wrench"></i> Operations cockpit</span>
+                <h1 class="hero-title">Coordinate rides, allocate volunteers, and celebrate impact.</h1>
+                <p class="hero-summary">Keep our community humming with a birds-eye view of activities, staffing, and appraisal insights—all in one streamlined workspace.</p>
+                <div class="metric-ticker">
+                    <article class="metric-card">
+                        <span class="metric-label">Live activities</span>
+                        <p class="text-sm text-slate-600 mt-2">Create, edit, and monitor every ride or clinic from the same toolkit.</p>
+                    </article>
+                    <article class="metric-card">
+                        <span class="metric-label">Smart matching</span>
+                        <p class="text-sm text-slate-600 mt-2">Auto-allocate volunteers based on Passion Index and role fit.</p>
+                    </article>
+                    <article class="metric-card">
+                        <span class="metric-label">Feedback loop</span>
+                        <p class="text-sm text-slate-600 mt-2">Track appraisals to fuel coaching, recognition, and growth.</p>
+                    </article>
                 </div>
-
-                <label class="block">
-                    <span class="text-gray-700 font-semibold">Role Required:</span>
-                    <select name="role-needed" required class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm p-2 bg-white">
-                        <option value="cycling-buddy">Cycling Buddy</option>
-                        <option value="logistics-support">Logistics Support</option>
-                        <option value="mechanic">Mechanic</option>
-                    </select>
-                </label>
-                
-                <button type="submit" class="w-full bg-sky-500 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-xl transition duration-200 shadow-md">
-                    Add Activity
-                </button>
-            </form>
-        </div>
-
-        <!-- NEW Section 2 (Full Width): Activity Calendar -->
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-purple-500 lg:col-span-2">
-            <h2 class="text-2xl font-bold text-purple-700 mb-4">2. Activity Calendar View</h2>
-            <div id="calendar-header" class="flex justify-between items-center mb-4">
-                <!-- Header content generated by JS -->
             </div>
-            <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center">
-                <!-- Day headers and calendar cells generated by JS -->
+
+            <div class="glass-card glass-card--light lg:max-w-xl">
+                <span class="tag"><i class="fa-solid fa-calendar-plus"></i> New activity</span>
+                <h2 class="mt-4 text-2xl font-extrabold text-slate-900">Create an event</h2>
+                <p class="text-slate-600 mt-2">Spin up fresh missions in seconds and keep the calendar stocked with joyful rides.</p>
+                <form id="activity-form" class="space-y-4 mt-6">
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Activity name</span>
+                        <input type="text" name="activity-name" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="block space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Date</span>
+                            <input type="date" name="activity-date" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
+                        <label class="block space-y-2">
+                            <span class="text-sm font-semibold text-slate-700">Volunteers needed</span>
+                            <input type="number" name="required-vols" min="1" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                        </label>
+                    </div>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Role required</span>
+                        <select name="role-needed" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                            <option value="cycling-buddy">Cycling Buddy</option>
+                            <option value="logistics-support">Logistics Support</option>
+                            <option value="mechanic">Mechanic</option>
+                        </select>
+                    </label>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Description</span>
+                        <textarea name="activity-description" rows="3" placeholder="Describe the activity..." class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400"></textarea>
+                    </label>
+                    <button type="submit" class="btn btn-primary w-full justify-center"><i class="fa-solid fa-plus"></i> Add activity</button>
+                </form>
             </div>
-        </div>
-        
-        <!-- Section 3: Volunteer Allocation (Manpower Allocation) -->
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-green-500 lg:col-span-3 h-fit">
-            <h2 class="text-2xl font-bold text-green-700 mb-4">3. Volunteer Allocation Tool</h2>
-            <p class="text-gray-600 mb-4">System recommends volunteers with the highest **Passion Index** for unfilled roles.</p>
-            
-            <ul id="allocation-list" class="space-y-3">
-                <!-- Dynamic Activity list generated by JS -->
-                <li class="text-center text-gray-400">Loading activities...</li>
+        </section>
+
+        <section class="glass-card glass-card--light overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <span class="tag"><i class="fa-solid fa-calendar-days"></i> Calendar overview</span>
+                    <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Monthly mission map</h2>
+                    <p class="text-slate-600 mt-2">Hover over dates to see staffing at a glance and spot opportunities to fill.</p>
+                </div>
+                <div id="calendar-header" class="flex items-center gap-3">
+                    <!-- Header generated by JS -->
+                </div>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center mt-6">
+                <!-- Calendar cells generated by JS -->
+            </div>
+        </section>
+
+        <section class="glass-card glass-card--light">
+            <span class="tag"><i class="fa-solid fa-people-arrows"></i> Allocation engine</span>
+            <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Match talent to missions</h2>
+            <p class="text-slate-600 mt-2">System ranks volunteers by Passion Index so you can instantly fill the right roles.</p>
+            <ul id="allocation-list" class="space-y-3 mt-6">
+                <li class="empty-state">Loading activities...</li>
             </ul>
-        </div>
+        </section>
 
-        <!-- Section 4 (Full Width): Passion Index Leaderboard & Sorting -->
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-orange-500 lg:col-span-3">
-            <h2 class="text-2xl font-bold text-orange-700 mb-4">4. Volunteer Leaderboard (Allocation Metric)</h2>
-            <p class="text-gray-600 mb-4">Volunteers with the highest scores are prioritized for allocation.</p>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
+        <section class="glass-card glass-card--light table-card">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <span class="tag"><i class="fa-solid fa-ranking-star"></i> Passion leaderboard</span>
+                    <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Top volunteers by readiness</h2>
+                    <p class="text-slate-600 mt-2">See who's available, who's deployed, and where their strengths shine.</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto mt-6">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-100/80">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Volunteer</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Passion Index</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignment Status</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preferred Role</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Volunteer</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Passion Index</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Assignment status</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Preferred role</th>
                         </tr>
                     </thead>
-                    <tbody id="leaderboard-body" class="bg-white divide-y divide-gray-200">
+                    <tbody id="leaderboard-body" class="bg-white divide-y divide-slate-100">
                         <!-- Content generated by JS -->
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
-        <!-- Section 5 (Full Width): Appraisal Records -->
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-t-4 border-red-500 lg:col-span-3">
-            <h2 class="text-2xl font-bold text-red-700 mb-4">5. Volunteer Appraisal Records</h2>
-            <p class="text-gray-600 mb-4">Records of feedback submitted by Senior Planners/Admins.</p>
-            
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
+        <section class="glass-card glass-card--light table-card">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <span class="tag"><i class="fa-solid fa-comments"></i> Appraisal records</span>
+                    <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Feedback that fuels growth</h2>
+                    <p class="text-slate-600 mt-2">Log and review notes from senior planners to keep the Passion Index tuned and transparent.</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto mt-6">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-100/80">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Volunteer</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activity</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Effect</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comment</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Volunteer</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Activity</th>
+                            <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">Effect</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Comment</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">Date</th>
                         </tr>
                     </thead>
-                    <tbody id="appraisal-body" class="bg-white divide-y divide-gray-200">
+                    <tbody id="appraisal-body" class="bg-white divide-y divide-slate-100">
                         <!-- Appraisal content generated by JS -->
                     </tbody>
                 </table>
             </div>
-        </div>
-        
-    </div>
+        </section>
+    </main>
 
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white text-center py-4 mt-auto text-sm">
-        &copy; 2025 Ageless Bicyclists
+    <footer class="site-footer">
+        &copy; 2025 Ageless Bicyclists · Admin cockpit
     </footer>
 </body>
 </html>
