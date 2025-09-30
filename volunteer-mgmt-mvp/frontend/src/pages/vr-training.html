@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VR Training - Anchor by Ageless Bicyclists</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="../style/styles.css">
+    <script>
+        const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID';
+        let currentUserId = null;
+        let vrModules = [];
+        let userProgress = [];
+
+        function initResponsiveNav() {
+            const navContainer = document.querySelector('.nav-container');
+            const toggle = document.querySelector('.nav-toggle');
+            const navList = document.getElementById('primary-navigation');
+            if (!navContainer || !toggle || !navList) return;
+
+            const toggleIcon = toggle.querySelector('i');
+
+            const closeMenu = () => {
+                navContainer.dataset.menuOpen = 'false';
+                toggle.setAttribute('aria-expanded', 'false');
+                if (toggleIcon) {
+                    toggleIcon.classList.add('fa-bars');
+                    toggleIcon.classList.remove('fa-xmark');
+                }
+            };
+
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const isOpen = navContainer.dataset.menuOpen === 'true';
+                const nextState = !isOpen;
+                navContainer.dataset.menuOpen = String(nextState);
+                toggle.setAttribute('aria-expanded', String(nextState));
+                if (toggleIcon) {
+                    toggleIcon.classList.toggle('fa-bars', !nextState);
+                    toggleIcon.classList.toggle('fa-xmark', nextState);
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!navContainer.contains(event.target)) {
+                    closeMenu();
+                }
+            });
+
+            navList.querySelectorAll('a').forEach((link) => {
+                link.addEventListener('click', () => closeMenu());
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 640) {
+                    closeMenu();
+                }
+            });
+
+            closeMenu();
+        }
+
+        function loadVRModules() {
+            fetch('http://localhost:3000/api/vr-modules')
+            .then(response => response.json())
+            .then(modules => {
+                vrModules = modules;
+                renderModules();
+            })
+            .catch(error => console.error('Error loading VR modules:', error));
+        }
+
+        function loadUserProgress() {
+            currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
+            if (!currentUserId) {
+                document.getElementById('progress-section').innerHTML = `
+                    <div class="glass-card glass-card--light text-center">
+                        <i class="fa-solid fa-user-slash text-4xl mb-3 text-slate-400"></i>
+                        <p class="text-slate-600">Please sign up to track your VR training progress</p>
+                        <a href="signup.html" class="btn btn-primary mt-4 inline-flex">
+                            <i class="fa-solid fa-user-plus"></i> Sign Up Now
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            fetch(`http://localhost:3000/api/volunteers/${currentUserId}/vr-progress`)
+            .then(response => response.json())
+            .then(data => {
+                userProgress = data.progress || [];
+                renderProgress(data);
+                renderModules();
+            })
+            .catch(error => {
+                console.error('Error loading progress:', error);
+                renderProgress({ progress: [], completionPercentage: 0 });
+            });
+        }
+
+        function renderProgress(data) {
+            const container = document.getElementById('progress-section');
+            const completionPercentage = data.completionPercentage || 0;
+            const completed = userProgress.filter(p => p.completed).length;
+            
+            container.innerHTML = `
+                <div class="glass-card glass-card--light">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-slate-900">
+                            <i class="fa-solid fa-chart-line"></i> Your Training Progress
+                        </h2>
+                        <div class="text-center">
+                            <div class="text-4xl font-extrabold text-purple-600">${Math.round(completionPercentage)}%</div>
+                            <p class="text-xs text-slate-600 mt-1">Complete</p>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar-large mb-6">
+                        <div class="progress-bar-fill-large" style="width: ${completionPercentage}%"></div>
+                    </div>
+                    
+                    <div class="metric-ticker">
+                        <div class="metric-card">
+                            <span class="metric-label">${completed}</span>
+                            <p class="text-sm text-slate-600 mt-2">Modules Completed</p>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">${vrModules.length - completed}</span>
+                            <p class="text-sm text-slate-600 mt-2">Modules Remaining</p>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">${vrModules.length}</span>
+                            <p class="text-sm text-slate-600 mt-2">Total Modules</p>
+                        </div>
+                    </div>
+                    
+                    ${userProgress.length > 0 ? `
+                        <div class="divider"></div>
+                        <div class="space-y-3">
+                            <h3 class="font-semibold text-slate-700">Recent Activity</h3>
+                            ${userProgress.slice(0, 3).map(p => {
+                                const module = vrModules.find(m => m.id === p.moduleId);
+                                if (!module) return '';
+                                return `
+                                    <div class="flex items-center justify-between p-3 bg-white/60 rounded-lg">
+                                        <div class="flex items-center gap-3">
+                                            <i class="fa-solid ${p.completed ? 'fa-check-circle text-green-600' : 'fa-clock text-amber-600'} text-xl"></i>
+                                            <div>
+                                                <p class="font-medium text-slate-900">${module.title}</p>
+                                                <p class="text-xs text-slate-600">${p.attempts} attempt${p.attempts > 1 ? 's' : ''}</p>
+                                            </div>
+                                        </div>
+                                        ${p.completed ? 
+                                            `<span class="chip bg-green-100 text-green-700">✓ Completed</span>` :
+                                            `<span class="chip">In Progress</span>`
+                                        }
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function getModuleProgress(moduleId) {
+            return userProgress.find(p => p.moduleId === moduleId);
+        }
+
+        function getDifficultyColor(difficulty) {
+            const colors = {
+                beginner: 'bg-green-100 text-green-700',
+                intermediate: 'bg-amber-100 text-amber-700',
+                advanced: 'bg-rose-100 text-rose-700'
+            };
+            return colors[difficulty] || 'bg-slate-100 text-slate-700';
+        }
+
+        function getDifficultyIcon(difficulty) {
+            const icons = {
+                beginner: 'fa-seedling',
+                intermediate: 'fa-chart-line',
+                advanced: 'fa-trophy'
+            };
+            return icons[difficulty] || 'fa-circle';
+        }
+
+        function renderModules() {
+            const container = document.getElementById('modules-grid');
+            
+            container.innerHTML = vrModules.map(module => {
+                const progress = getModuleProgress(module.id);
+                const isCompleted = progress?.completed || false;
+                const attempts = progress?.attempts || 0;
+                
+                return `
+                    <article class="glass-card glass-card--light ${isCompleted ? 'border-2 border-green-300' : ''}">
+                        <div class="flex items-start justify-between mb-4">
+                            <span class="chip ${getDifficultyColor(module.difficulty)}">
+                                <i class="fa-solid ${getDifficultyIcon(module.difficulty)}"></i> ${module.difficulty}
+                            </span>
+                            ${isCompleted ? '<i class="fa-solid fa-circle-check text-3xl text-green-600"></i>' : ''}
+                        </div>
+                        
+                        <h3 class="text-2xl font-bold text-slate-900 mb-3">${module.title}</h3>
+                        <p class="text-slate-700 mb-4">${module.description}</p>
+                        
+                        <div class="flex items-center gap-4 mb-4 text-sm text-slate-600">
+                            <span><i class="fa-solid fa-clock"></i> ${module.duration}</span>
+                            <span><i class="fa-solid fa-layer-group"></i> ${module.scenarios.length} scenarios</span>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <div class="mb-4">
+                            <h4 class="font-semibold text-slate-700 mb-2">Training Scenarios:</h4>
+                            <ul class="space-y-2">
+                                ${module.scenarios.map(scenario => `
+                                    <li class="flex items-start gap-2 text-sm">
+                                        <i class="fa-solid fa-play text-purple-600 mt-1"></i>
+                                        <span class="text-slate-700">${scenario}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <div class="flex items-center justify-between">
+                            ${attempts > 0 ? `
+                                <div class="text-sm text-slate-600">
+                                    <i class="fa-solid fa-rotate"></i> ${attempts} attempt${attempts > 1 ? 's' : ''}
+                                </div>
+                            ` : '<div></div>'}
+                            
+                            <button onclick="startModule('${module.id}')" 
+                                class="btn ${isCompleted ? 'btn-ghost' : 'btn-primary'}">
+                                <i class="fa-solid fa-${isCompleted ? 'rotate' : 'play'}"></i> 
+                                ${isCompleted ? 'Retry' : 'Start Training'}
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function startModule(moduleId) {
+            if (!currentUserId) {
+                alert('Please sign up first to access VR training');
+                window.location.href = 'signup.html';
+                return;
+            }
+
+            const module = vrModules.find(m => m.id === moduleId);
+            if (!module) return;
+
+            if (confirm(`Start VR training: ${module.title}?\n\nThis will simulate real ASD interaction scenarios in an immersive environment.`)) {
+                // Simulate module completion (in real app, this would launch VR interface)
+                const completed = Math.random() > 0.3; // 70% completion rate for demo
+                
+                fetch('http://localhost:3000/api/vr-progress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        volunteerId: currentUserId,
+                        moduleId: moduleId,
+                        completed: completed
+                    })
+                })
+                .then(response => response.json())
+                .then(() => {
+                    if (completed) {
+                        alert(`🎉 Congratulations! You completed "${module.title}"!\n\nYour skills in handling ASD scenarios have improved.`);
+                    } else {
+                        alert(`Good effort on "${module.title}"!\n\nTry again to master these scenarios.`);
+                    }
+                    loadUserProgress();
+                })
+                .catch(error => console.error('Error recording progress:', error));
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initResponsiveNav();
+            loadVRModules();
+            loadUserProgress();
+        });
+    </script>
+    <style>
+        .progress-bar-large {
+            width: 100%;
+            height: 16px;
+            background: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-fill-large {
+            height: 100%;
+            background: linear-gradient(to right, #f97316, #ec4899, #a855f7);
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="nav-container" data-menu-open="false">
+            <a class="brand-link" href="index.html">
+                <span class="brand-emblem"><i class="fa-solid fa-bicycle"></i></span>
+                <span>Ageless Bicyclists</span>
+            </a>
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation">
+                <span class="sr-only">Toggle navigation</span>
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <nav id="primary-navigation" class="nav-list">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="signup.html" class="nav-link">Join</a>
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="events.html" class="nav-link">Events</a>
+                <a href="stories.html" class="nav-link">Stories</a>
+                <a href="buddy-matching.html" class="nav-link">Matching</a>
+                <a href="vr-training.html" class="nav-link nav-link--active">VR Training</a>
+                <a href="admin.html" class="nav-link">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section class="hero-card">
+            <article class="space-y-5">
+                <span class="hero-eyebrow"><i class="fa-solid fa-graduation-cap"></i> Volunteer preparation</span>
+                <h1 class="hero-title">Train confidently before your first ride.</h1>
+                <p class="hero-summary">Anchor's VR training prepares volunteers for real cycling scenarios with individuals with ASD. Practice communication, sensory awareness, and safety protocols in a risk-free environment.</p>
+            </article>
+
+            <article class="glass-card glass-card--light">
+                <span class="tag"><i class="fa-solid fa-graduation-cap"></i> Why VR training?</span>
+                <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Safe practice environment</h2>
+                <p class="mt-2 text-slate-600">VR training allows volunteers to experience and respond to realistic ASD scenarios without risk. Make mistakes, learn from them, and build confidence before your first real interaction.</p>
+                <div class="metric-ticker mt-5">
+                    <div class="metric-card">
+                        <span class="metric-label">No Risk</span>
+                        <p class="text-sm text-slate-600 mt-2">Practice without consequences</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Realistic</span>
+                        <p class="text-sm text-slate-600 mt-2">Based on real scenarios</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Repeatable</span>
+                        <p class="text-sm text-slate-600 mt-2">Master each scenario</p>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section id="progress-section" class="mb-8">
+            <div class="glass-card glass-card--light">
+                <div class="empty-state">
+                    <i class="fa-solid fa-spinner fa-spin text-4xl mb-3"></i>
+                    <p>Loading your progress...</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-8">
+            <h2 class="text-3xl font-extrabold text-slate-50 mb-6">
+                <i class="fa-solid fa-layer-group"></i> Available Training Modules
+            </h2>
+            <div class="cards-grid" id="modules-grid">
+                <div class="empty-state col-span-full">
+                    <i class="fa-solid fa-spinner fa-spin text-4xl mb-3"></i>
+                    <p>Loading training modules...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        &copy; 2025 Ageless Bicyclists · Anchor Platform · Prepared volunteers, successful rides
+    </footer>
+</body>
+</html>

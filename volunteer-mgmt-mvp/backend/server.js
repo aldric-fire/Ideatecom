@@ -94,6 +94,118 @@ let appraisals = [
   }
 ];
 
+// Story Wall - Transformation stories from volunteers and participants
+let stories = [
+  {
+    id: 's1',
+    authorId: '1',
+    authorName: 'John Doe',
+    authorType: 'volunteer',
+    title: 'Finding Joy in Every Pedal',
+    content: 'Working with Sarah, a young woman on the autism spectrum, changed my perspective on communication. Her attention to detail and focus inspired me to become a better listener.',
+    participantName: 'Sarah M.',
+    tags: ['communication', 'inspiration', 'growth'],
+    reactions: { hearts: 12, inspired: 8 },
+    timestamp: '2025-09-15T14:30:00Z',
+    featured: true
+  }
+];
+
+// Buddy Matching Profiles - Extended volunteer/participant profiles for matching
+let matchingProfiles = [
+  {
+    id: 'mp1',
+    userId: '1',
+    userType: 'volunteer',
+    personalityTraits: {
+      patience: 9,
+      structure: 7,
+      flexibility: 8,
+      enthusiasm: 8
+    },
+    communicationStyle: 'visual-verbal',
+    sensoryPreferences: {
+      noise: 'low',
+      touch: 'moderate',
+      visualStimulation: 'high'
+    },
+    experience: ['ASD', 'sensory-processing'],
+    availability: ['weekends', 'mornings'],
+    languages: ['English', 'ASL-basic']
+  }
+];
+
+let participants = [
+  {
+    id: 'p1',
+    name: 'Alex T.',
+    ageGroup: '18-25',
+    profileId: 'mpp1',
+    assignedBuddyId: null,
+    medicalNotes: 'Sensory sensitivities - prefers quiet environments',
+    emergencyContact: { name: 'Parent/Guardian', phone: '***-***-****' }
+  }
+];
+
+let participantProfiles = [
+  {
+    id: 'mpp1',
+    participantId: 'p1',
+    communicationNeeds: 'visual-supports',
+    sensoryProfile: {
+      noise: 'sensitive',
+      touch: 'sensitive',
+      visualStimulation: 'moderate'
+    },
+    interests: ['cycling', 'nature', 'photography'],
+    supportNeeds: ['structured-routine', 'clear-instructions', 'processing-time'],
+    strengths: ['detail-oriented', 'reliable', 'creative']
+  }
+];
+
+// VR Training Modules
+let vrModules = [
+  {
+    id: 'vr1',
+    title: 'Communication Fundamentals with ASD Individuals',
+    description: 'Learn effective communication strategies including visual supports, clear language, and processing time',
+    duration: 20,
+    scenarios: ['first-meeting', 'sensory-overload', 'routine-change'],
+    difficulty: 'beginner',
+    completionRate: 0.85
+  },
+  {
+    id: 'vr2',
+    title: 'Sensory Sensitivity Awareness',
+    description: 'Experience common sensory challenges and learn accommodation strategies',
+    duration: 15,
+    scenarios: ['noise-sensitivity', 'tactile-sensitivity', 'visual-overload'],
+    difficulty: 'beginner',
+    completionRate: 0.78
+  },
+  {
+    id: 'vr3',
+    title: 'Emergency Response & De-escalation',
+    description: 'Practice calm responses to meltdowns and emergency situations',
+    duration: 25,
+    scenarios: ['meltdown-response', 'medical-emergency', 'lost-participant'],
+    difficulty: 'intermediate',
+    completionRate: 0.72
+  }
+];
+
+let vrProgress = [
+  {
+    id: 'vrp1',
+    volunteerId: '1',
+    moduleId: 'vr1',
+    completed: true,
+    score: 92,
+    attempts: 1,
+    completedAt: '2025-09-10T16:45:00Z'
+  }
+];
+
 // Helper function to calculate passion index
 const calculatePassionIndex = (volunteer) => {
  // Base score is 50
@@ -129,6 +241,19 @@ app.get('/api/volunteers', (req, res) => {
   });
   
   res.json(updatedVolunteers);
+});
+
+// Get all participants
+app.get('/api/participants', (req, res) => {
+  res.json(participants.map(p => {
+    const profile = participantProfiles.find(pp => pp.id === p.profileId);
+    return {
+      ...p,
+      sensoryProfile: profile?.sensoryProfile,
+      supportNeeds: profile?.supportNeeds,
+      strengths: profile?.strengths
+    };
+  }));
 });
 
 // Get volunteer by ID
@@ -353,6 +478,78 @@ app.get('/api/volunteers/:id/engagement', (req, res) => {
   res.json(engagementData);
 });
 
+// ==================== STORY WALL API ====================
+
+// Get all stories (with optional filters)
+app.get('/api/stories', (req, res) => {
+  let filteredStories = [...stories];
+  
+  if (req.query.featured === 'true') {
+    filteredStories = filteredStories.filter(s => s.featured);
+  }
+  
+  if (req.query.tag) {
+    filteredStories = filteredStories.filter(s => s.tags.includes(req.query.tag));
+  }
+  
+  // Sort by timestamp, newest first
+  filteredStories.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  
+  res.json(filteredStories);
+});
+
+// Get story by ID
+app.get('/api/stories/:id', (req, res) => {
+  const story = stories.find(s => s.id === req.params.id);
+  if (!story) {
+    return res.status(404).json({ error: 'Story not found' });
+  }
+  res.json(story);
+});
+
+// Create new story
+app.post('/api/stories', (req, res) => {
+  const { authorId, authorName, authorType, title, content, participantName, tags } = req.body;
+  
+  if (!authorId || !title || !content) {
+    return res.status(400).json({ error: 'Author ID, title, and content are required' });
+  }
+  
+  const newStory = {
+    id: 's' + Math.random().toString(36).substr(2, 9),
+    authorId,
+    authorName,
+    authorType: authorType || 'volunteer',
+    title,
+    content,
+    participantName: participantName || '',
+    tags: tags || [],
+    reactions: { hearts: 0, inspired: 0 },
+    timestamp: new Date().toISOString(),
+    featured: false
+  };
+  
+  stories.push(newStory);
+  res.status(201).json(newStory);
+});
+
+// Add reaction to story
+app.post('/api/stories/:id/react', (req, res) => {
+  const { reactionType } = req.body;
+  const story = stories.find(s => s.id === req.params.id);
+  
+  if (!story) {
+    return res.status(404).json({ error: 'Story not found' });
+  }
+  
+  if (!['hearts', 'inspired'].includes(reactionType)) {
+    return res.status(400).json({ error: 'Invalid reaction type' });
+  }
+  
+  story.reactions[reactionType]++;
+  res.json(story);
+});
+
 // Recommendation engine - suggest activities for a volunteer
 app.get('/api/volunteers/:id/recommendations', (req, res) => {
   const volunteer = volunteers.find(v => v.id === req.params.id);
@@ -387,6 +584,251 @@ app.get('/api/volunteers/:id/recommendations', (req, res) => {
     });
   
   res.json(recommendations);
+});
+
+// ==================== BUDDY MATCHING API ====================
+
+// Calculate compatibility score between volunteer and participant
+const calculateCompatibilityScore = (volunteerProfile, participantProfile) => {
+  let score = 0;
+  let maxScore = 0;
+  
+  // Communication style compatibility (30 points)
+  maxScore += 30;
+  if (volunteerProfile.communicationStyle === participantProfile.communicationNeeds) {
+    score += 30;
+  } else if (volunteerProfile.communicationStyle.includes('visual') && 
+             participantProfile.communicationNeeds.includes('visual')) {
+    score += 20;
+  }
+  
+  // Sensory compatibility (40 points) - crucial for ASD support
+  maxScore += 40;
+  const sensoryMatch = {
+    noise: volunteerProfile.sensoryPreferences.noise === 'low' && 
+           participantProfile.sensoryProfile.noise === 'sensitive' ? 15 : 
+           volunteerProfile.sensoryPreferences.noise === 'moderate' ? 10 : 5,
+    touch: Math.abs(
+      (['low', 'moderate', 'high'].indexOf(volunteerProfile.sensoryPreferences.touch)) -
+      (['sensitive', 'moderate', 'comfortable'].indexOf(participantProfile.sensoryProfile.touch))
+    ) <= 1 ? 15 : 5,
+    visual: Math.abs(
+      (['low', 'moderate', 'high'].indexOf(volunteerProfile.sensoryPreferences.visualStimulation)) -
+      (['low', 'moderate', 'high'].indexOf(participantProfile.sensoryProfile.visualStimulation))
+    ) <= 1 ? 10 : 3
+  };
+  score += sensoryMatch.noise + sensoryMatch.touch + sensoryMatch.visual;
+  
+  // Personality traits (20 points)
+  maxScore += 20;
+  if (volunteerProfile.personalityTraits.patience >= 8 && 
+      participantProfile.supportNeeds.includes('processing-time')) {
+    score += 10;
+  }
+  if (volunteerProfile.personalityTraits.structure >= 7 && 
+      participantProfile.supportNeeds.includes('structured-routine')) {
+    score += 10;
+  }
+  
+  // Experience match (10 points)
+  maxScore += 10;
+  if (volunteerProfile.experience.includes('ASD')) {
+    score += 10;
+  } else if (volunteerProfile.experience.includes('sensory-processing')) {
+    score += 5;
+  }
+  
+  return Math.round((score / maxScore) * 100);
+};
+
+// Get matching profile for volunteer/participant
+app.get('/api/matching-profiles/:userId', (req, res) => {
+  const profile = matchingProfiles.find(p => p.userId === req.params.userId);
+  if (!profile) {
+    return res.status(404).json({ error: 'Matching profile not found' });
+  }
+  res.json(profile);
+});
+
+// Create/update matching profile
+app.post('/api/matching-profiles', (req, res) => {
+  const { userId, userType, personalityTraits, communicationStyle, sensoryPreferences, experience, availability, languages } = req.body;
+  
+  if (!userId || !userType) {
+    return res.status(400).json({ error: 'User ID and user type are required' });
+  }
+  
+  const existingIndex = matchingProfiles.findIndex(p => p.userId === userId);
+  
+  const profile = {
+    id: existingIndex >= 0 ? matchingProfiles[existingIndex].id : 'mp' + Math.random().toString(36).substr(2, 9),
+    userId,
+    userType,
+    personalityTraits: personalityTraits || {},
+    communicationStyle: communicationStyle || '',
+    sensoryPreferences: sensoryPreferences || {},
+    experience: experience || [],
+    availability: availability || [],
+    languages: languages || []
+  };
+  
+  if (existingIndex >= 0) {
+    matchingProfiles[existingIndex] = profile;
+  } else {
+    matchingProfiles.push(profile);
+  }
+  
+  res.status(existingIndex >= 0 ? 200 : 201).json(profile);
+});
+
+// Get participant profiles
+app.get('/api/participants', (req, res) => {
+  res.json(participants);
+});
+
+// Get participant profile with matching data
+app.get('/api/participants/:id/profile', (req, res) => {
+  const participant = participants.find(p => p.id === req.params.id);
+  if (!participant) {
+    return res.status(404).json({ error: 'Participant not found' });
+  }
+  
+  const profile = participantProfiles.find(p => p.id === participant.profileId);
+  res.json({ ...participant, profile });
+});
+
+// Find best buddy matches for a participant
+app.get('/api/participants/:id/matches', (req, res) => {
+  const participant = participants.find(p => p.id === req.params.id);
+  if (!participant) {
+    return res.status(404).json({ error: 'Participant not found' });
+  }
+  
+  const participantProfile = participantProfiles.find(p => p.id === participant.profileId);
+  if (!participantProfile) {
+    return res.status(404).json({ error: 'Participant profile not found' });
+  }
+  
+  // Get all volunteer matching profiles
+  const volunteerProfiles = matchingProfiles.filter(p => p.userType === 'volunteer');
+  
+  // Calculate compatibility scores
+  const matches = volunteerProfiles.map(vProfile => {
+    const volunteer = volunteers.find(v => v.id === vProfile.userId);
+    const score = calculateCompatibilityScore(vProfile, participantProfile);
+    
+    return {
+      volunteerId: vProfile.userId,
+      volunteerName: volunteer ? volunteer.name : 'Unknown',
+      compatibilityScore: score,
+      profile: vProfile,
+      available: volunteer ? !volunteer.assignedActivityId : false
+    };
+  });
+  
+  // Sort by score, highest first
+  matches.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+  
+  res.json(matches);
+});
+
+// Assign buddy to participant
+app.post('/api/participants/:participantId/assign-buddy/:volunteerId', (req, res) => {
+  const participant = participants.find(p => p.id === req.params.participantId);
+  const volunteer = volunteers.find(v => v.id === req.params.volunteerId);
+  
+  if (!participant) {
+    return res.status(404).json({ error: 'Participant not found' });
+  }
+  
+  if (!volunteer) {
+    return res.status(404).json({ error: 'Volunteer not found' });
+  }
+  
+  participant.assignedBuddyId = volunteer.id;
+  
+  res.json({ message: 'Buddy assigned successfully', participant, volunteer });
+});
+
+// ==================== VR TRAINING API ====================
+
+// Get all VR modules
+app.get('/api/vr-modules', (req, res) => {
+  res.json(vrModules);
+});
+
+// Get VR module by ID
+app.get('/api/vr-modules/:id', (req, res) => {
+  const module = vrModules.find(m => m.id === req.params.id);
+  if (!module) {
+    return res.status(404).json({ error: 'VR module not found' });
+  }
+  res.json(module);
+});
+
+// Get volunteer's VR training progress
+app.get('/api/volunteers/:id/vr-progress', (req, res) => {
+  const volunteer = volunteers.find(v => v.id === req.params.id);
+  if (!volunteer) {
+    return res.status(404).json({ error: 'Volunteer not found' });
+  }
+  
+  const progress = vrProgress.filter(p => p.volunteerId === req.params.id);
+  
+  // Calculate overall completion percentage
+  const completedModules = progress.filter(p => p.completed).length;
+  const totalModules = vrModules.length;
+  const completionPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+  
+  res.json({
+    progress,
+    completedModules,
+    totalModules,
+    completionPercentage
+  });
+});
+
+// Record VR module completion
+app.post('/api/vr-progress', (req, res) => {
+  const { volunteerId, moduleId, completed, score } = req.body;
+  
+  if (!volunteerId || !moduleId) {
+    return res.status(400).json({ error: 'Volunteer ID and module ID are required' });
+  }
+  
+  const volunteer = volunteers.find(v => v.id === volunteerId);
+  const module = vrModules.find(m => m.id === moduleId);
+  
+  if (!volunteer) {
+    return res.status(404).json({ error: 'Volunteer not found' });
+  }
+  
+  if (!module) {
+    return res.status(404).json({ error: 'VR module not found' });
+  }
+  
+  // Check if progress record exists
+  const existingIndex = vrProgress.findIndex(p => 
+    p.volunteerId === volunteerId && p.moduleId === moduleId
+  );
+  
+  const progressRecord = {
+    id: existingIndex >= 0 ? vrProgress[existingIndex].id : 'vrp' + Math.random().toString(36).substr(2, 9),
+    volunteerId,
+    moduleId,
+    completed: completed || false,
+    score: score || 0,
+    attempts: existingIndex >= 0 ? vrProgress[existingIndex].attempts + 1 : 1,
+    completedAt: completed ? new Date().toISOString() : null
+  };
+  
+  if (existingIndex >= 0) {
+    vrProgress[existingIndex] = progressRecord;
+  } else {
+    vrProgress.push(progressRecord);
+  }
+  
+  res.status(existingIndex >= 0 ? 200 : 201).json(progressRecord);
 });
 
 // Serve static files from the frontend directory

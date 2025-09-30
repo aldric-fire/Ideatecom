@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Available Events</title>
+    <title>Cycling Events - Anchor by Ageless Bicyclists</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMDJ8C+a5+q9gW76j42N71nB4mE/2/j6k9N7r+A2hV9eY8c6F8p6E6aN/F4aA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="../style/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -396,6 +396,9 @@
                 <a href="signup.html" class="nav-link">Join</a>
                 <a href="dashboard.html" class="nav-link">Dashboard</a>
                 <a href="events.html" class="nav-link nav-link--active">Events</a>
+                <a href="stories.html" class="nav-link">Stories</a>
+                <a href="buddy-matching.html" class="nav-link">Matching</a>
+                <a href="vr-training.html" class="nav-link">VR Training</a>
                 <a href="onboarding.html" class="nav-link">Resources</a>
                 <a href="admin.html" class="nav-link">Admin</a>
             </nav>
@@ -405,15 +408,15 @@
     <main class="page-shell">
         <section class="hero-card">
             <div class="space-y-5">
-                <span class="hero-eyebrow"><i class="fa-solid fa-route"></i> Browse live missions</span>
-                <h1 class="hero-title">Find the next ride, clinic, or festival where you can shine.</h1>
-                <p class="hero-summary">Reserve one mission at a time so we can keep assignments clear and deliver world-class support for our seniors.</p>
+                <span class="hero-eyebrow"><i class="fa-solid fa-calendar-check"></i> Inclusive cycling sessions</span>
+                <h1 class="hero-title">Join our next cycling adventure with ASD participants.</h1>
+                <p class="hero-summary">Browse upcoming inclusive cycling sessions designed for individuals with Autism Spectrum Disorder. Each ride is carefully planned with sensory-friendly routes and trained volunteer support.</p>
 
                 <div class="glass-card glass-card--light">
                     <div class="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <span class="tag"><i class="fa-solid fa-sort"></i> Sort options</span>
-                            <p class="mt-2 text-slate-600">Quickly reorder missions to see the soonest dates, most urgent spots, or freshest additions.</p>
+                            <p class="mt-2 text-slate-600">Quickly reorder sessions to see the soonest dates, most urgent spots, or newest additions.</p>
                         </div>
                         <div id="sort-controls" class="flex flex-wrap gap-2">
                             <button id="sort-date-asc" onclick="updateSort('date-asc')" class="btn btn-primary text-sm py-2"><i class="fa-solid fa-arrow-up"></i> Soonest date</button>
@@ -437,7 +440,7 @@
     </main>
 
     <footer class="site-footer">
-        &copy; 2025 Ageless Bicyclists · Mission data refreshed daily.
+        &copy; 2025 Ageless Bicyclists · Anchor Platform · Every ride matters
     </footer>
 </body>
 </html>

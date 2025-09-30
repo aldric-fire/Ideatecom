@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ageless Bicyclists Volunteer Portal</title>
+    <title>Anchor - Ageless Bicyclists Volunteer Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMDJ8C+a5+q9gW76j42N71nB4mE/2/j6k9N7r+A2hV9eY8c6F8p6E6aN/F4aA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="../style/styles.css">
     <script>
         const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
@@ -73,14 +73,11 @@
             } catch (e) { return []; }
         }
 
-        // --- NEW: Carousel Data and Logic (UPDATED ICONS) ---
+        // --- Carousel Data for Anchor Platform Features ---
         const carouselData = [
-            // Replaced '🌟' with 'fa-solid fa-lightbulb'
-            { icon: 'fa-solid fa-lightbulb', title: 'Our Mission: Joy', text: 'We provide mobility and connection to seniors through guided bicycle rides.' },
-            // Replaced '🚴‍♀️' with 'fa-solid fa-hand-holding-heart'
-            { icon: 'fa-solid fa-hand-holding-heart', title: 'The Impact', text: 'Every ride brings immense happiness, reduces isolation, and improves health.' },
-            // Replaced '🤝' with 'fa-solid fa-user-group'
-            { icon: 'fa-solid fa-user-group', title: 'Volunteer Roles', text: 'Choose your adventure: Buddy, Mechanic, or Logistics Pro.' }
+            { icon: 'fa-solid fa-brain', title: 'Smart Buddy Matching', text: 'Our algorithm weighs sensory compatibility (40%), communication styles (30%), personality fit (20%), and ASD experience (10%) to create perfect cycling partnerships.' },
+            { icon: 'fa-solid fa-vr-cardboard', title: 'VR Training Modules', text: 'Practice handling real ASD scenarios in a safe virtual environment. Master communication techniques, sensory awareness, and emergency protocols before your first ride.' },
+            { icon: 'fa-solid fa-book-open-reader', title: 'Story Wall Impact', text: 'Read and share transformation stories that inspire. See how cycling creates breakthroughs, builds confidence, and brings joy to individuals with ASD and their volunteer buddies.' }
         ];
 
         let currentSlide = 0;
@@ -97,7 +94,7 @@
             const data = carouselData[currentSlide];
 
             // Update content: Set the class list for Font Awesome icon
-            carouselIcon.className = `text-5xl block mb-4 transition duration-500 transform scale-110 ${data.icon}`;
+            carouselIcon.className = `text-5xl text-cyan-200 transition-all duration-500 ${data.icon}`;
             carouselTitle.textContent = data.title;
             carouselText.textContent = data.text;
 
@@ -149,7 +146,7 @@
 
             const funFactButton = document.getElementById('fun-fact-button');
             if (funFactButton) {
-                funFactButton.addEventListener('click', () => checkFunFact('65plus'));
+                funFactButton.addEventListener('click', () => checkFunFact('impact'));
             }
 
             initResponsiveNav();
@@ -172,6 +169,9 @@
                 <a href="signup.html" class="nav-link">Join</a>
                 <a href="dashboard.html" class="nav-link">Dashboard</a>
                 <a href="events.html" class="nav-link">Events</a>
+                <a href="stories.html" class="nav-link">Stories</a>
+                <a href="buddy-matching.html" class="nav-link">Matching</a>
+                <a href="vr-training.html" class="nav-link">VR Training</a>
                 <a href="onboarding.html" class="nav-link">Resources</a>
                 <a href="admin.html" class="nav-link">Admin</a>
             </nav>
@@ -181,39 +181,68 @@
     <main class="page-shell">
         <section class="hero-card overflow-card">
             <div class="space-y-6">
-                <span class="hero-eyebrow"><i class="fa-solid fa-bolt"></i> Volunteer-powered joy rides</span>
-                <h1 class="hero-title">Pedal joy back into the lives of our seniors.</h1>
-                <p class="hero-summary">Ageless Bicyclists brings neighbours together to provide safe, exhilarating cycling adventures for older adults. Every ride builds connection, confidence, and community.</p>
+                <span class="hero-eyebrow"><i class="fa-solid fa-bicycle"></i> Inclusive cycling for ASD</span>
+                <h1 class="hero-title">Anchor: Connecting volunteers with purpose.</h1>
+                <p class="hero-summary">Join Singapore's first experiential inclusive recreation cycling program for Autism Spectrum Disorder. Since 2015, Ageless Bicyclists has been bringing joy, freedom, and connection through inclusive cycling adventures.</p>
 
                 <div class="hero-actions">
-                    <a href="signup.html" class="btn btn-primary"><i class="fa-solid fa-person-biking"></i> Start volunteering</a>
-                    <a href="events.html" class="btn btn-ghost"><i class="fa-solid fa-route"></i> Browse upcoming missions</a>
+                    <a href="signup.html" class="btn btn-primary"><i class="fa-solid fa-person-biking"></i> Become a cycling buddy</a>
+                    <a href="events.html" class="btn btn-ghost"><i class="fa-solid fa-route"></i> Browse cycling sessions</a>
                 </div>
 
                 <div class="metric-ticker">
                     <article class="metric-card">
                         <span class="metric-label">Active volunteers</span>
                         <span class="metric-value" id="active-volunteers">...</span>
-                        <p class="text-sm text-slate-500 mt-2">Neighbours powering weekly rides and workshops.</p>
+                        <p class="text-sm text-slate-500 mt-2">Trained cycling buddies supporting inclusive rides.</p>
                     </article>
                     <article class="metric-card">
-                        <span class="metric-label">Missions on deck</span>
+                        <span class="metric-label">Cycling sessions</span>
                         <span class="metric-value" id="upcoming-events">...</span>
-                        <p class="text-sm text-slate-500 mt-2">Community rides, tune-up clinics, and festival support.</p>
+                        <p class="text-sm text-slate-500 mt-2">Sensory-friendly cycling adventures for individuals with ASD.</p>
                     </article>
                     <article class="metric-card">
-                        <span class="metric-label">Satisfaction score</span>
-                        <span class="metric-value">4.8★</span>
-                        <p class="text-sm text-slate-500 mt-2">Volunteer feedback across the last quarter.</p>
+                        <span class="metric-label">Impact since 2015</span>
+                        <span class="metric-value">10 years</span>
+                        <p class="text-sm text-slate-500 mt-2">A decade of pioneering inclusive cycling in Singapore.</p>
                     </article>
                 </div>
             </div>
 
-            <div class="glass-card">
-                <span class="tag"><i class="fa-solid fa-mountain-sun"></i> Mission snapshots</span>
-                <i id="carousel-icon" class="text-6xl mb-4 text-cyan-200 transition-all duration-500 fa-solid fa-bicycle"></i>
-                <h3 id="carousel-title" class="text-3xl font-semibold leading-tight text-white">Loading mission...</h3>
-                <p id="carousel-text" class="mt-3 text-base leading-relaxed text-slate-200/80">Discover the three core pillars of the Ageless Bicyclists project.</p>
+            <div class="glass-card glass-card--light">
+                <span class="tag"><i class="fa-solid fa-award"></i> About Ageless Bicyclists</span>
+                <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Singapore's first ASD cycling program</h2>
+                <p class="mt-3 text-slate-600">Founded in 2015, Ageless Bicyclists is a non-profit social enterprise pioneering experiential inclusive recreation cycling for individuals with Autism Spectrum Disorder. We are proud members of:</p>
+                <div class="mt-4 space-y-2">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-check-circle text-green-600 mt-1"></i>
+                        <span class="text-slate-700"><strong>raiSE</strong> - Singapore Centre for Social Enterprise</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-check-circle text-green-600 mt-1"></i>
+                        <span class="text-slate-700"><strong>ARAIBA</strong> - ASEAN Responsible And Inclusive Business Alliance</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-check-circle text-green-600 mt-1"></i>
+                        <span class="text-slate-700"><strong>Asean Autism Network</strong> - Associate Member</span>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-award text-amber-600 mt-1"></i>
+                        <span class="text-slate-700"><strong>Brands For Good</strong> - Honouree Recognition</span>
+                    </div>
+                </div>
+                <p class="mt-4 text-slate-600 italic">Anchor is our volunteer management platform, designed to make pairing cycling buddies with participants seamless, meaningful, and impactful.</p>
+            </div>
+        </section>
+
+        <section class="hero-card">
+            <div>
+                <span class="tag"><i class="fa-solid fa-mountain-sun"></i> How Anchor helps</span>
+                <div class="flex items-center gap-4 my-4">
+                    <i id="carousel-icon" class="text-5xl text-cyan-200 transition-all duration-500 fa-solid fa-bicycle"></i>
+                </div>
+                <h3 id="carousel-title" class="text-3xl font-semibold leading-tight text-white">Loading features...</h3>
+                <p id="carousel-text" class="mt-3 text-base leading-relaxed text-slate-200/80">Discover how Anchor supports volunteers and participants.</p>
 
                 <div class="flex items-center justify-between mt-8">
                     <div class="flex gap-3">
@@ -227,6 +256,26 @@
                     </div>
                 </div>
             </div>
+
+            <div class="glass-card glass-card--light">
+                <span class="tag"><i class="fa-solid fa-stars"></i> Why Anchor matters</span>
+                <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Built for ASD-inclusive cycling</h2>
+                <p class="mt-2 text-slate-600">Generic volunteer platforms don't understand the unique needs of ASD cycling programs. Anchor was purpose-built with sensory profiles, compatibility matching, and VR training to ensure every ride succeeds.</p>
+                <div class="metric-ticker mt-5">
+                    <div class="metric-card">
+                        <span class="metric-label">Smart Matching</span>
+                        <p class="text-sm text-slate-600 mt-2">40% sensory compatibility weighting</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">VR Training</span>
+                        <p class="text-sm text-slate-600 mt-2">Practice real scenarios safely</p>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Story Wall</span>
+                        <p class="text-sm text-slate-600 mt-2">Share transformation moments</p>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section class="section-grid">
@@ -234,24 +283,24 @@
                 <div class="flex items-start justify-between gap-6">
                     <div>
                         <span class="tag"><i class="fa-solid fa-circle-question"></i> Quick quiz</span>
-                        <h2 class="mt-4 text-3xl font-extrabold text-slate-900">Who benefits most from your ride?</h2>
-                        <p class="mt-3 text-slate-600">Take a guess and learn more about the people whose days you brighten with every mission.</p>
+                        <h2 class="mt-4 text-3xl font-extrabold text-slate-900">Why do volunteers join Ageless Bicyclists?</h2>
+                        <p class="mt-3 text-slate-600">Take a guess and discover what drives our amazing community of cycling buddies.</p>
                     </div>
                     <i class="fa-solid fa-compass-drafting text-4xl text-sky-500"></i>
                 </div>
 
                 <form id="fun-fact-form" class="space-y-4 mt-8">
                     <label class="cursor-pointer">
-                        <input type="radio" name="fun-fact" value="teens">
-                        <span>13-18 year olds</span>
+                        <input type="radio" name="fun-fact" value="resume">
+                        <span>To add volunteer hours to my resume</span>
                     </label>
                     <label class="cursor-pointer">
-                        <input type="radio" name="fun-fact" value="20s">
-                        <span>20-30 year olds</span>
+                        <input type="radio" name="fun-fact" value="fitness">
+                        <span>To improve my own cycling fitness</span>
                     </label>
                     <label class="cursor-pointer">
-                        <input type="radio" name="fun-fact" value="65plus">
-                        <span>65+ seniors</span>
+                        <input type="radio" name="fun-fact" value="impact">
+                        <span>To make a meaningful impact on participants with ASD</span>
                     </label>
 
                     <button type="button" id="fun-fact-button" class="btn btn-primary w-full justify-center">
@@ -267,8 +316,8 @@
                 <div class="cards-grid">
                     <article class="card-item">
                         <i class="fa-solid fa-face-smile-beam text-2xl text-sky-500"></i>
-                        <h3 class="mt-3 text-lg font-semibold">Restore connection</h3>
-                        <p class="text-sm text-slate-600">One-to-one rides build lasting friendships while reducing isolation for our senior neighbours.</p>
+                        <h3 class="mt-3 text-lg font-semibold">Build confidence</h3>
+                        <p class="text-sm text-slate-600">One-to-one rides build lasting friendships while helping participants with ASD develop independence and social skills.</p>
                     </article>
                     <article class="card-item">
                         <i class="fa-solid fa-screwdriver-wrench text-2xl text-sky-500"></i>
@@ -340,7 +389,7 @@
                     <p class="text-slate-600">We pair every new volunteer with resources, mentors, and community support so you never feel lost.</p>
                 </div>
                 <div class="btn-group flex gap-3">
-                    <a href="onboarding.html" class="btn btn-ghost border border-slate-200"><i class="fa-solid fa-graduation-cap"></i> Explore resources</a>
+                    <a href="onboarding.html" class="btn btn-primary"><i class="fa-solid fa-graduation-cap"></i> Explore resources</a>
                     <a href="dashboard.html" class="btn btn-primary"><i class="fa-solid fa-chart-line"></i> View your dashboard</a>
                 </div>
             </div>
@@ -366,7 +415,7 @@
     </main>
 
     <footer class="site-footer">
-        &copy; 2025 Ageless Bicyclists · Fueled by community passion and endless pedal power.
+        &copy; 2025 Ageless Bicyclists · Anchor Platform · Inclusive Cycling for ASD
     </footer>
 </body>
 </html>

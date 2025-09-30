@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+<!DOCT    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="../style/styles.css"> html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Volunteer Dashboard</title>
+    <title>Dashboard - Anchor by Ageless Bicyclists</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLMDJ8C+a5+q9gW76j42N71nB4mE/2/j6k9N7r+A2hV9eYc6F8p6E6aN/F4aA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="../style/styles.css">
@@ -344,35 +346,43 @@
                 <a href="signup.html" class="nav-link">Join</a>
                 <a href="dashboard.html" class="nav-link nav-link--active">Dashboard</a>
                 <a href="events.html" class="nav-link">Events</a>
+                <a href="stories.html" class="nav-link">Stories</a>
+                <a href="buddy-matching.html" class="nav-link">Matching</a>
+                <a href="vr-training.html" class="nav-link">VR Training</a>
                 <a href="onboarding.html" class="nav-link">Resources</a>
                 <a href="admin.html" class="nav-link">Admin</a>
             </nav>
         </div>
     </header>
 
-    <main class="page-shell">
-        <section class="hero-card">
-            <div class="space-y-5">
-                <span class="hero-eyebrow"><i class="fa-solid fa-circle-nodes"></i> Welcome back</span>
+    <main class="page-shell page-shell--dashboard-centered">
+        <section class="dashboard-welcome-section">
+            <div class="space-y-5 text-center">
+                <span class="hero-eyebrow inline-block"><i class="fa-solid fa-circle-nodes"></i> Welcome back</span>
                 <h1 class="hero-title text-4xl md:text-5xl"><span id="current-user-display">Volunteer</span>, here's your mission control.</h1>
-                <p class="hero-summary">Track your active assignment, lock in a new mission, and celebrate the passion points you've earned serving our seniors.</p>
-                <div class="metric-ticker">
+                <p class="hero-summary mx-auto">Track your active cycling assignment, lock in a new ride, and celebrate the impact points you've earned supporting participants with ASD.</p>
+            </div>
+        </section>
+
+        <section class="dashboard-container-centered">
+            <div class="glass-card glass-card--light" id="dashboard-container">
+                <!-- Metric Cards at Top -->
+                <div class="metric-ticker metric-ticker--dashboard">
                     <article class="metric-card">
-                        <span class="metric-label">Current assignment</span>
-                        <p class="text-base text-slate-600 mt-2">Keep an eye on date, role fit, and any last-minute tips.</p>
+                        <span class="metric-label">Current cycling assignment</span>
+                        <p class="text-base text-slate-600 mt-2">Your active ride with participant details and safety tips.</p>
                     </article>
                     <article class="metric-card">
-                        <span class="metric-label">Suggested missions</span>
-                        <p class="text-base text-slate-600 mt-2">Our recommendation engine surfaces the top three openings for you.</p>
+                        <span class="metric-label">Suggested rides</span>
+                        <p class="text-base text-slate-600 mt-2">Smart-matched cycling sessions tailored to your skills.</p>
                     </article>
                     <article class="metric-card">
-                        <span class="metric-label">Lifetime XP</span>
-                        <p class="text-base text-slate-600 mt-2">Complete debriefs to convert experience into Passion Index boosts.</p>
+                        <span class="metric-label">Impact points</span>
+                        <p class="text-base text-slate-600 mt-2">Track your contributions to ASD-inclusive cycling.</p>
                     </article>
                 </div>
-            </div>
 
-            <div class="glass-card glass-card--light" id="dashboard-container">
+                <!-- Main Content Grid -->
                 <div class="dashboard-grid" id="dashboard-content">
                     <div class="dashboard-column dashboard-column--primary">
                         <div id="role-card" class="glass-card glass-card--light">
@@ -392,16 +402,16 @@
                                 </div>
                                 <a href="events.html" class="btn btn-ghost border border-slate-200"><i class="fa-solid fa-arrow-right"></i> View all missions</a>
                             </div>
-                            <p class="mt-3 text-slate-600">Choose one opportunity at a time to keep your focus high and our seniors safe.</p>
+                            <p class="mt-3 text-slate-600">Choose one ride at a time to ensure quality attention for each participant with ASD.</p>
                             <ul id="upcoming-events-list" class="space-y-3 mt-5">
                                 <li class="empty-state">Loading events...</li>
                             </ul>
                         </div>
 
                         <div class="glass-card glass-card--light">
-                            <span class="tag"><i class="fa-solid fa-trophy"></i> Mission debrief</span>
-                            <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Experience points & praise</h2>
-                            <p class="mt-2 text-slate-600">Review highlights from your recent rides to see the Passion Index boost each mission delivered.</p>
+                            <span class="tag"><i class="fa-solid fa-trophy"></i> Ride debrief</span>
+                            <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Cycling impact & feedback</h2>
+                            <p class="mt-2 text-slate-600">Review highlights from your recent rides and see how each session transformed participants with ASD.</p>
                             <ul id="history-list" class="space-y-3 mt-5"></ul>
                         </div>
                     </div>
@@ -411,7 +421,7 @@
     </main>
 
     <footer class="site-footer">
-        &copy; 2025 Ageless Bicyclists · Fueled by community passion.
+        &copy; 2025 Ageless Bicyclists · Anchor Platform · Track your impact
     </footer>
 </body>
 </html>
