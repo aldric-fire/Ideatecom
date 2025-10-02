@@ -133,67 +133,120 @@
             messageBox.classList.remove('hidden');
         }
         
-        window.handleRegistration = function(activityId) {
-            // Fetch current user ID from localStorage
+        function handleMissingVolunteerProfile(customMessage) {
+            const message = customMessage || "We couldn't find your volunteer profile. Please sign up again to continue.";
+            console.warn('Missing volunteer profile detected. Clearing stored ID and redirecting to signup.');
+            localStorage.removeItem(CURRENT_USER_ID_KEY);
+            showMessageBox(`${message} Redirecting you to the sign-up page.`, true);
+            setTimeout(() => {
+                window.location.href = 'signup.html';
+            }, 2000);
+        }
+        
+        window.handleRegistration = async function(activityId) {
+            console.log('=== REGISTRATION BUTTON CLICKED ===');
+            console.log('handleRegistration called with activityId:', activityId);
+            console.log('Window width:', window.innerWidth);
+            console.log('Is mobile view?', window.innerWidth < 768);
+
             const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
+            console.log('Current user ID:', currentUserId);
+
             if (!currentUserId) {
-                showMessageBox("Error: Volunteer profile not found. Please ensure you are logged in/signed up.", true);
+                console.error('No user ID found in localStorage');
+                handleMissingVolunteerProfile("We couldn't identify your volunteer profile.");
                 return;
             }
 
-            // Fetch user data from backend API to check current assignment
-            fetch(`http://localhost:3000/api/volunteers/${currentUserId}`)
-            .then(response => response.json())
-            .then(currentUser => {
-                // 1. Check if user is already assigned
-                if (currentUser.assignedActivityId) {
-                    const currentAssignment = activities.find(a => a.id === currentUser.assignedActivityId);
-                    const assignedName = currentAssignment ? currentAssignment.name : 'another event';
-                    showMessageBox(`You are already assigned to: <strong>${assignedName}</strong>. Please complete or unregister from your current mission first.`, true);
+            try {
+                console.log('Fetching user data from API...');
+                const userResponse = await fetch(`http://localhost:3000/api/volunteers/${currentUserId}`);
+                console.log('User fetch response status:', userResponse.status);
+
+                if (userResponse.status === 404) {
+                    handleMissingVolunteerProfile();
                     return;
                 }
 
-                // Send registration request to backend API
-                fetch(`http://localhost:3000/api/activities/${activityId}/register/${currentUserId}`, {
+                if (!userResponse.ok) {
+                    throw new Error(`Failed to fetch volunteer profile: ${userResponse.status}`);
+                }
+
+                const currentUser = await userResponse.json();
+                console.log('Current user data:', currentUser);
+
+                if (currentUser.assignedActivityId) {
+                    console.log('User already assigned to:', currentUser.assignedActivityId);
+                    const activitiesResponse = await fetch('http://localhost:3000/api/activities');
+                    if (activitiesResponse.ok) {
+                        const activities = await activitiesResponse.json();
+                        const currentAssignment = activities.find(a => a.id === currentUser.assignedActivityId);
+                        const assignedName = currentAssignment ? currentAssignment.name : 'another event';
+                        showMessageBox(`You are already assigned to: <strong>${assignedName}</strong>. Please complete or unregister from your current mission first.`, true);
+                    } else {
+                        showMessageBox('Unable to verify your current assignment right now. Please try again shortly.', true);
+                    }
+                    return;
+                }
+
+                console.log('Registering user for activity...');
+                const registrationResponse = await fetch(`http://localhost:3000/api/activities/${activityId}/register/${currentUserId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        showMessageBox(data.error, true);
-                    } else {
-                        showMessageBox(`Success! You are now registered for "<strong>${data.activity.name}</strong>" on ${formatDate(data.activity.date)}.`);
-                        renderEvents(); // Refresh UI
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showMessageBox("An error occurred during registration. Please try again.", true);
                 });
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-                showMessageBox("An error occurred while checking your profile. Please try again.", true);
-            });
+                console.log('Registration response status:', registrationResponse.status);
+
+                if (registrationResponse.status === 404) {
+                    const errorData = await registrationResponse.json();
+                    if (errorData.error === 'Volunteer not found') {
+                        handleMissingVolunteerProfile();
+                        return;
+                    }
+                }
+
+                const registrationData = await registrationResponse.json();
+                console.log('Registration response data:', registrationData);
+
+                if (!registrationResponse.ok || registrationData.error) {
+                    showMessageBox(registrationData.error || 'Registration failed. Please try again.', true);
+                    return;
+                }
+
+                showMessageBox(`
+                    Success! You are now registered for "<strong>${registrationData.activity.name}</strong>" on ${formatDate(registrationData.activity.date)}.<br><br>
+                    <a href="dashboard.html" class="inline-block mt-2 bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                        <i class="fa-solid fa-gauge-high mr-2"></i> View Dashboard
+                    </a>
+                `);
+                renderEvents();
+            } catch (error) {
+                console.error('Registration error:', error);
+                showMessageBox('An error occurred during registration. Please try again.', true);
+            }
         }
 
         // --- NEW: Sorting Logic ---
         let currentSort = 'date-asc'; // Default sort
 
+        function highlightSortControls() {
+            const buttons = document.querySelectorAll('#sort-controls button');
+            buttons.forEach(button => {
+                const isActive = button.id === `sort-${currentSort}`;
+                button.classList.toggle('btn-primary', isActive);
+                button.classList.toggle('btn-ghost', !isActive);
+                button.classList.toggle('bg-sky-500', isActive);
+                button.classList.toggle('text-white', isActive);
+                button.classList.toggle('bg-gray-200', !isActive);
+                button.classList.toggle('text-gray-700', !isActive);
+            });
+        }
+
         window.updateSort = function(newSort) {
             currentSort = newSort;
+            highlightSortControls();
             renderEvents();
-            
-            // Visually update the button
-            document.querySelectorAll('#sort-controls button').forEach(btn => {
-                btn.classList.remove('bg-sky-500', 'text-white');
-                btn.classList.add('bg-gray-200', 'text-gray-700');
-            });
-            document.getElementById(`sort-${newSort}`).classList.remove('bg-gray-200', 'text-gray-700');
-            document.getElementById(`sort-${newSort}`).classList.add('bg-sky-500', 'text-white');
         }
 
         function getSortedEvents(activities) {
@@ -223,136 +276,175 @@
         }
         // --- END Sorting Logic ---
 
-        function renderEvents() {
-            // Fetch current user ID from localStorage
+        function attachRegisterButtonHandlers() {
+            const buttons = document.querySelectorAll('.register-btn');
+            buttons.forEach(button => {
+                button.type = 'button';
+                button.addEventListener('click', (event) => {
+                    if (button.disabled) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const activityId = button.getAttribute('data-activity-id');
+                    if (!activityId) {
+                        console.error('Register button missing data-activity-id');
+                        return;
+                    }
+                    console.log('Register button clicked:', activityId);
+                    handleRegistration(activityId);
+                });
+            });
+        }
+
+        async function renderEvents() {
+            const eventsList = document.getElementById('events-list');
+            if (!eventsList) {
+                return;
+            }
+
             const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
             if (!currentUserId) {
-                // If no user ID is stored, redirect to signup page
                 window.location.href = 'signup.html';
                 return;
             }
 
-            // Fetch user data from backend API
-            fetch(`http://localhost:3000/api/volunteers/${currentUserId}`)
-            .then(response => response.json())
-            .then(currentUser => {
-                // Fetch activities from backend API
-                fetch('http://localhost:3000/api/activities')
-                .then(response => response.json())
-                .then(activities => {
-                    const eventsList = document.getElementById('events-list');
+            try {
+                const userResponse = await fetch(`http://localhost:3000/api/volunteers/${currentUserId}`);
+                if (userResponse.status === 404) {
+                    eventsList.innerHTML = `
+                        <li class="p-6 text-center text-red-500 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
+                            We couldn't find your volunteer profile. Please sign up again to browse and register for missions.
+                        </li>
+                    `;
+                    handleMissingVolunteerProfile();
+                    return;
+                }
 
-                    if (!currentUser) {
-                        eventsList.innerHTML = '<li class="p-4 text-center text-red-500">No volunteer profile loaded. Please sign up first.</li>';
-                        return;
+                if (!userResponse.ok) {
+                    throw new Error(`Failed to fetch volunteer profile: ${userResponse.status}`);
+                }
+                const currentUser = await userResponse.json();
+
+                const activitiesResponse = await fetch('http://localhost:3000/api/activities');
+                if (!activitiesResponse.ok) {
+                    throw new Error(`Failed to fetch activities: ${activitiesResponse.status}`);
+                }
+                const activities = await activitiesResponse.json();
+
+                if (!currentUser) {
+                    eventsList.innerHTML = '<li class="p-4 text-center text-red-500">No volunteer profile loaded. Please sign up first.</li>';
+                    return;
+                }
+
+                const today = new Date().toISOString().split('T')[0];
+                const availableEvents = activities
+                    .filter(activity => activity.assignedVolunteerIds.length < activity.requiredVolunteers)
+                    .filter(activity => activity.date >= today);
+
+                const sortedEvents = getSortedEvents(availableEvents);
+
+                if (sortedEvents.length === 0) {
+                    eventsList.innerHTML = `
+                        <li class="p-8 text-center text-gray-500 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
+                            <i class="fa-solid fa-mug-hot text-4xl mb-3 text-red-400"></i>
+                            <p class="text-xl font-semibold">Mission Control is quiet!</p>
+                            <p class="mt-2">All upcoming activities are either full or none have been scheduled yet. Check back soon!</p>
+                        </li>
+                    `;
+                    highlightSortControls();
+                    return;
+                }
+
+                eventsList.innerHTML = sortedEvents.map(activity => {
+                    const assigned = activity.assignedVolunteerIds.length;
+                    const required = activity.requiredVolunteers;
+                    const remaining = required - assigned;
+                    const percentFull = (assigned / required) * 100;
+
+                    const isRegistered = activity.assignedVolunteerIds.includes(currentUser.id);
+                    const isAssignedToOther = currentUser.assignedActivityId && currentUser.assignedActivityId !== activity.id;
+
+                    let buttonText = 'Register Now';
+                    let buttonClass = 'bg-sky-500 hover:bg-sky-700';
+                    let buttonIcon = '<i class="fa-solid fa-clipboard-check mr-2"></i>';
+                    let buttonDisabled = false;
+
+                    if (isRegistered) {
+                        buttonText = 'Registered!';
+                        buttonClass = 'bg-green-500 cursor-not-allowed';
+                        buttonIcon = '<i class="fa-solid fa-check-double mr-2"></i>';
+                        buttonDisabled = true;
+                    } else if (isAssignedToOther) {
+                        buttonText = 'Assigned Elsewhere';
+                        buttonClass = 'bg-red-500 cursor-not-allowed';
+                        buttonIcon = '<i class="fa-solid fa-ban mr-2"></i>';
+                        buttonDisabled = true;
                     }
-                    
-                    // Filter events: only show events that are not full AND are in the future
-                    const today = new Date().toISOString().split('T')[0];
-                    const availableEvents = activities
-                        .filter(a => a.assignedVolunteerIds.length < a.requiredVolunteers)
-                        .filter(a => a.date >= today); 
 
-                    const sortedEvents = getSortedEvents(availableEvents);
-
-                    if (sortedEvents.length === 0) {
-                        eventsList.innerHTML = `
-                            <li class="p-8 text-center text-gray-500 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
-                                <i class="fa-solid fa-mug-hot text-4xl mb-3 text-red-400"></i>
-                                <p class="text-xl font-semibold">Mission Control is quiet!</p>
-                                <p class="mt-2">All upcoming activities are either full or none have been scheduled yet. Check back soon!</p>
-                            </li>
-                        `;
-                        return;
+                    let progressClass = 'bg-green-500';
+                    if (remaining <= 2) {
+                        progressClass = 'bg-red-500';
+                    } else if (remaining <= 4) {
+                        progressClass = 'bg-yellow-500';
                     }
 
-                    eventsList.innerHTML = sortedEvents.map(activity => {
-                        const assigned = activity.assignedVolunteerIds.length;
-                        const required = activity.requiredVolunteers;
-                        const remaining = required - assigned;
-                        const percentFull = (assigned / required) * 100;
-                        
-                        const isRegistered = activity.assignedVolunteerIds.includes(currentUser.id);
-                        const isAssignedToOther = currentUser.assignedActivityId && currentUser.assignedActivityId !== activity.id;
-                        
-                        let buttonText = 'Register Now';
-                        let buttonClass = 'bg-sky-500 hover:bg-sky-700';
-                        let buttonIcon = '<i class="fa-solid fa-clipboard-check mr-2"></i>';
-                        let buttonDisabled = false;
-
-                        if (isRegistered) {
-                            buttonText = 'Registered!';
-                            buttonClass = 'bg-green-500 cursor-not-allowed';
-                            buttonIcon = '<i class="fa-solid fa-check-double mr-2"></i>';
-                            buttonDisabled = true;
-                        } else if (isAssignedToOther) {
-                            buttonText = 'Assigned Elsewhere';
-                            buttonClass = 'bg-red-500 cursor-not-allowed';
-                            buttonIcon = '<i class="fa-solid fa-ban mr-2"></i>';
-                            buttonDisabled = true;
-                        }
-
-                        // Progress bar colors
-                        let progressClass = 'bg-green-500';
-                        if (remaining <= 2) {
-                            progressClass = 'bg-red-500';
-                        } else if (remaining <= 4) {
-                            progressClass = 'bg-yellow-500';
-                        }
-                        
-                        return `
-                            <li class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-sky-400 flex flex-col transition duration-300 hover:shadow-2xl hover:scale-[1.01]">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div class="md:w-2/3">
-                                        <p class="text-2xl font-bold text-gray-800">${activity.name}</p>
-                                        <p class="text-md text-sky-600 font-semibold mt-1">
-                                            <i class="fa-solid fa-calendar-alt mr-2"></i> ${formatDate(activity.date)}
-                                        </p>
-                                    </div>
-                                    <div class="md:w-1/3 flex flex-col items-end space-y-1">
-                                        <span class="px-3 py-1 text-sm font-semibold rounded-full ${remaining <= 2 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                            ${remaining <= 2 ? '<i class="fa-solid fa-fire-extinguisher mr-1"></i> HIGH DEMAND' : '<i class="fa-solid fa-check-circle mr-1"></i> SPOTS OPEN'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <p class="text-sm text-gray-600 mb-2 font-medium">
-                                        <i class="fa-solid fa-person-biking text-blue-500 mr-1"></i> Role Needed: 
-                                        <span class="font-bold">${activity.roleNeeded.charAt(0).toUpperCase() + activity.roleNeeded.slice(1).replace('-', ' ')}</span>
+                    return `
+                        <li class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-sky-400 flex flex-col transition duration-300 hover:shadow-2xl" style="pointer-events: auto;">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="md:w-2/3">
+                                    <p class="text-2xl font-bold text-gray-800">${activity.name}</p>
+                                    <p class="text-md text-sky-600 font-semibold mt-1">
+                                        <i class="fa-solid fa-calendar-alt mr-2"></i> ${formatDate(activity.date)}
                                     </p>
-                                    <div class="text-xs text-gray-500 mb-1 flex justify-between">
-                                        <span>Spots Left: <span class="font-bold text-base ${remaining <= 2 ? 'text-red-600' : 'text-green-600'}">${remaining}</span>/${required}</span>
-                                        <span>${Math.round(percentFull)}% Full</span>
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div class="progress-fill ${progressClass}" style="width: ${percentFull}%;"></div>
-                                    </div>
                                 </div>
+                                <div class="md:w-1/3 flex flex-col items-end space-y-1">
+                                    <span class="px-3 py-1 text-sm font-semibold rounded-full ${remaining <= 2 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                                        ${remaining <= 2 ? '<i class="fa-solid fa-fire-extinguisher mr-1"></i> HIGH DEMAND' : '<i class="fa-solid fa-check-circle mr-1"></i> SPOTS OPEN'}
+                                    </span>
+                                </div>
+                            </div>
 
-                                <button 
-                                    onclick="handleRegistration('${activity.id}')"
-                                    class="${buttonClass} text-white font-bold py-3 px-6 rounded-lg transition duration-200 w-full disabled:opacity-70 disabled:cursor-not-allowed text-lg shadow-md"
-                                    ${buttonDisabled ? 'disabled' : ''}>
-                                    ${buttonIcon} ${buttonText}
-                                </button>
-                            </li>
-                        `;
-                    }).join('');
+                            <div class="mb-4">
+                                <p class="text-sm text-gray-600 mb-2 font-medium">
+                                    <i class="fa-solid fa-person-biking text-blue-500 mr-1"></i> Role Needed: 
+                                    <span class="font-bold">${activity.roleNeeded.charAt(0).toUpperCase() + activity.roleNeeded.slice(1).replace('-', ' ')}</span>
+                                </p>
+                                <div class="text-xs text-gray-500 mb-1 flex justify-between">
+                                    <span>Spots Left: <span class="font-bold text-base ${remaining <= 2 ? 'text-red-600' : 'text-green-600'}">${remaining}</span>/${required}</span>
+                                    <span>${Math.round(percentFull)}% Full</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${progressClass}" style="width: ${percentFull}%;"></div>
+                                </div>
+                            </div>
 
-                    // Ensure the correct sort button is highlighted on initial load/render
-                    updateSort(currentSort); 
-                })
-                .catch(error => {
-                    console.error('Error fetching activities:', error);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-            });
+                            <button 
+                                type="button"
+                                data-activity-id="${activity.id}"
+                                class="register-btn ${buttonClass} text-white font-bold py-3 px-6 rounded-lg transition duration-200 w-full disabled:opacity-70 disabled:cursor-not-allowed text-lg shadow-md"
+                                style="pointer-events: auto; position: relative; z-index: 10;"
+                                ${buttonDisabled ? 'disabled' : ''}>
+                                ${buttonIcon} ${buttonText}
+                            </button>
+                        </li>
+                    `;
+                }).join('');
+
+                attachRegisterButtonHandlers();
+                highlightSortControls();
+            } catch (error) {
+                console.error('Error rendering events:', error);
+                eventsList.innerHTML = `
+                    <li class="p-6 text-center text-red-500 bg-white rounded-xl shadow-lg border-l-4 border-red-400">
+                        Unable to load activities right now. Please try again shortly.
+                    </li>
+                `;
+            }
         }
         
         document.addEventListener('DOMContentLoaded', () => {
+            highlightSortControls();
             renderEvents();
 
             const closeButton = document.getElementById('close-message-box');
@@ -364,9 +456,6 @@
                     }
                 });
             }
-
-            // Initialize the sort button highlight
-            updateSort(currentSort);
 
             initResponsiveNav();
         });

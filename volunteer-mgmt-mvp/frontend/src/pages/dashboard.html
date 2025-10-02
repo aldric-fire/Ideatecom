@@ -13,9 +13,10 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
     <script>
-        const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
-        const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
-        const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'; // Key used to fetch the current user
+    const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
+    const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
+    const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID'; // Key used to fetch the current user
+    const ONBOARDING_PROGRESS_KEY = 'AB_ONBOARDING_PROGRESS';
 
         function initResponsiveNav() {
             const navContainer = document.querySelector('.nav-container');
@@ -75,6 +76,658 @@
             'default': { name: 'New Recruit', icon: '👤', color: 'text-gray-600', bg: 'bg-gray-100' } // Fallback
         };
 
+        const ROLE_ONBOARDING_MODULES = {
+            'cycling-buddy': [
+                { id: 'cb-01', title: 'Adaptive Ride Safety Essentials' },
+                { id: 'cb-02', title: 'Coaching with Confidence' },
+                { id: 'cb-03', title: 'Buddy Debriefs that Stick' }
+            ],
+            'logistics-support': [
+                { id: 'ls-01', title: 'Event Staging 101' },
+                { id: 'ls-02', title: 'Radio & Volunteer Comms' },
+                { id: 'ls-03', title: 'Wrap-Up & Reporting' }
+            ],
+            'mechanic': [
+                { id: 'me-01', title: 'Quick Safety Inspection' },
+                { id: 'me-02', title: 'Adaptive Bike Fitting' },
+                { id: 'me-03', title: 'Field Fix Toolkit' }
+            ],
+            'planner': [
+                { id: 'pl-01', title: 'Route Design for ASD Inclusion' },
+                { id: 'pl-02', title: 'Pre-Ride Brief Mastery' },
+                { id: 'pl-03', title: 'Post-Ride Reporting' }
+            ],
+            'default': [
+                { id: 'core-01', title: 'Mission Orientation' },
+                { id: 'core-02', title: 'Safety Mindset Basics' },
+                { id: 'core-03', title: 'Inclusive Communication 101' }
+            ]
+        };
+
+        const DEMO_USER_PROFILE = {
+            id: 'demo-volunteer',
+            name: 'Skyler Demo',
+            role: 'cycling-buddy',
+            assignedActivityId: 'demo-ride-1'
+        };
+
+        const DEMO_ACTIVITIES = [
+            {
+                id: 'demo-ride-1',
+                name: 'Sunrise Sensory Spin',
+                date: '2025-10-12',
+                roleNeeded: 'cycling-buddy',
+                requiredVolunteers: 4,
+                assignedVolunteerIds: ['demo-volunteer', 'vol-203']
+            },
+            {
+                id: 'demo-ride-2',
+                name: 'Harbor Calm Cruise',
+                date: '2025-10-19',
+                roleNeeded: 'logistics-support',
+                requiredVolunteers: 5,
+                assignedVolunteerIds: ['vol-210']
+            },
+            {
+                id: 'demo-ride-3',
+                name: 'Adaptive Night Lights Ride',
+                date: '2025-11-02',
+                roleNeeded: 'mechanic',
+                requiredVolunteers: 3,
+                assignedVolunteerIds: ['vol-111', 'vol-112']
+            },
+            {
+                id: 'demo-ride-4',
+                name: 'Sensory-Friendly Bike Expo',
+                date: '2025-11-15',
+                roleNeeded: 'planner',
+                requiredVolunteers: 6,
+                assignedVolunteerIds: []
+            }
+        ];
+
+        const ENGAGEMENT_METRICS_LIBRARY = {
+            'demo-volunteer': {
+                hours: {
+                    value: 48,
+                    label: 'Community ride hours in 2025',
+                    delta: '+8 hours vs last month'
+                },
+                roles: ['Cycling Buddy', 'Ride Sweep', 'Peer Mentor'],
+                consistency: {
+                    summary: 'Weekly ride cadence',
+                    detail: 'Supported 6 adaptive rides in September',
+                    streak: 'Current streak: 5 consecutive weeks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Renee S.',
+                        date: 'Sep 24, 2025',
+                        comment: 'Great team spirit, very supportive of seniors.'
+                    },
+                    {
+                        mentor: 'Marco T.',
+                        date: 'Aug 30, 2025',
+                        comment: 'Keeps riders calm during transitions and communicates clearly.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 92,
+                    compositeLabel: 'Highly passionate',
+                    attendance: { score: 0.95, label: 'Attendance & service hours' },
+                    appraisals: { score: 4.8, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.6, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Eligible for Lead Ride Captain rotation next month.'
+                }
+            },
+            'cycling-buddy': {
+                hours: {
+                    value: 42,
+                    label: 'Year to date service hours',
+                    delta: '+6 hours vs last month'
+                },
+                roles: ['Cycling Buddy', 'Ride Sweep'],
+                consistency: {
+                    summary: 'Weekly ride cadence',
+                    detail: 'Logged 5 community rides in September',
+                    streak: 'Current streak: 4 consecutive weeks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Renee S.',
+                        date: 'Sep 18, 2025',
+                        comment: 'Great team spirit, very supportive of seniors.'
+                    },
+                    {
+                        mentor: 'Marco T.',
+                        date: 'Aug 30, 2025',
+                        comment: 'Keeps riders calm during transitions and communicates clearly.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 88,
+                    compositeLabel: 'High momentum',
+                    attendance: { score: 0.9, label: 'Attendance & service hours' },
+                    appraisals: { score: 4.6, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.5, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Invited to co-lead sensory pacing huddles next cycle.'
+                }
+            },
+            'logistics-support': {
+                hours: {
+                    value: 58,
+                    label: 'Event production hours in 2025',
+                    delta: '+3 events staffed this quarter'
+                },
+                roles: ['Load-in Captain', 'Check-in Lead'],
+                consistency: {
+                    summary: 'Bi-weekly event rotation',
+                    detail: 'Supported 7 events over the past 90 days',
+                    streak: 'Current streak: 6 on-time arrivals'
+                },
+                feedback: [
+                    {
+                        mentor: 'Alex P.',
+                        date: 'Sep 14, 2025',
+                        comment: 'Anticipates crowd flow and jumps in before lines form.'
+                    },
+                    {
+                        mentor: 'Dana K.',
+                        date: 'Aug 05, 2025',
+                        comment: 'Sets up sensory-friendly zones with care and precision.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 85,
+                    compositeLabel: 'Steady leader',
+                    attendance: { score: 0.92, label: 'Event attendance' },
+                    appraisals: { score: 4.7, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.2, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Shortlisted for shift captain mentorship track.'
+                }
+            },
+            'mechanic': {
+                hours: {
+                    value: 33,
+                    label: 'Shop & ride support hours',
+                    delta: '+2 emergency fixes logged this month'
+                },
+                roles: ['Adaptive Bike Tech', 'Ride-side Mechanic'],
+                consistency: {
+                    summary: 'Weekend wrench sessions',
+                    detail: 'Covered 4 maintenance clinics in September',
+                    streak: 'Current streak: 9 flawless safety checks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Chris L.',
+                        date: 'Sep 22, 2025',
+                        comment: 'Walks riders through repairs so they feel confident and heard.'
+                    },
+                    {
+                        mentor: 'Nia J.',
+                        date: 'Aug 18, 2025',
+                        comment: 'Excellent troubleshooting under pressure during hill climb event.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 83,
+                    compositeLabel: 'Reliable specialist',
+                    attendance: { score: 0.88, label: 'Clinic attendance' },
+                    appraisals: { score: 4.5, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.1, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Recommended for advanced adaptive drivetrain certification.'
+                }
+            },
+            'planner': {
+                hours: {
+                    value: 47,
+                    label: 'Inclusive planning sessions',
+                    delta: '+2 multi-route pilots launched'
+                },
+                roles: ['Route Designer', 'Briefing Facilitator'],
+                consistency: {
+                    summary: 'Monthly strategy sprints',
+                    detail: 'Coordinated 3 partner meetings in September',
+                    streak: 'Current streak: 5 briefs rated “excellent”'
+                },
+                feedback: [
+                    {
+                        mentor: 'Priya V.',
+                        date: 'Sep 10, 2025',
+                        comment: 'Creates calm, clear pre-ride expectations for caregivers and riders.'
+                    },
+                    {
+                        mentor: 'Leo H.',
+                        date: 'Aug 21, 2025',
+                        comment: 'Routes balance challenge and sensory comfort beautifully.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 90,
+                    compositeLabel: 'Strategic trailblazer',
+                    attendance: { score: 0.96, label: 'Planning session presence' },
+                    appraisals: { score: 4.9, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.7, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Ideal candidate to mentor new planners during fall cohort.'
+                }
+            },
+            'default': {
+                hours: {
+                    value: 12,
+                    label: 'Starter hours from shadowing & training',
+                    delta: 'Finish onboarding to unlock live tracking'
+                },
+                roles: ['Anchor Volunteer'],
+                consistency: {
+                    summary: 'Onboarding in progress',
+                    detail: 'Complete your first mission to start building a streak',
+                    streak: 'No streak yet — you’re just getting started!'
+                },
+                feedback: [
+                    {
+                        mentor: 'Program Lead Team',
+                        date: '—',
+                        comment: 'Complete your first mission and mentors will leave personalized shout-outs here.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 55,
+                    compositeLabel: 'Momentum building',
+                    attendance: { score: 0.6, label: 'Starter attendance estimate' },
+                    appraisals: { score: 3.5, label: 'Baseline appraisal potential (out of 5)' },
+                    satisfaction: { score: 3.8, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Complete onboarding rides to unlock leadership pathways.'
+                }
+            }
+        };
+
+        function seedDemoProgress() {
+            const store = getOnboardingProgressStore();
+            if (store[DEMO_USER_PROFILE.id]?.seeded) {
+                return;
+            }
+            store[DEMO_USER_PROFILE.id] = {
+                completed: ['cb-01', 'cb-02'],
+                certified: false,
+                role: DEMO_USER_PROFILE.role,
+                updatedAt: new Date().toISOString(),
+                seeded: true
+            };
+            saveOnboardingProgressStore(store);
+        }
+
+        function getEngagementProfile(currentUser) {
+            if (currentUser && currentUser.id && ENGAGEMENT_METRICS_LIBRARY[currentUser.id]) {
+                return ENGAGEMENT_METRICS_LIBRARY[currentUser.id];
+            }
+            const roleKey = currentUser && currentUser.role && ENGAGEMENT_METRICS_LIBRARY[currentUser.role] ? currentUser.role : 'default';
+            return ENGAGEMENT_METRICS_LIBRARY[roleKey] || ENGAGEMENT_METRICS_LIBRARY.default;
+        }
+
+        function renderEngagementInsights(currentUser) {
+            const hoursValueEl = document.getElementById('engagement-hours-value');
+            const hoursLabelEl = document.getElementById('engagement-hours-label');
+            const hoursDeltaEl = document.getElementById('engagement-hours-delta');
+            const rolesContainer = document.getElementById('engagement-roles-list');
+            const consistencySummaryEl = document.getElementById('engagement-consistency-summary');
+            const consistencyDetailEl = document.getElementById('engagement-consistency-detail');
+            const consistencyStreakEl = document.getElementById('engagement-consistency-streak');
+            const loginMessageEl = document.getElementById('engagement-login-message');
+            const feedbackListEl = document.getElementById('feedback-list');
+            const feedbackEmptyEl = document.getElementById('feedback-empty-state');
+
+            if (!hoursValueEl || !rolesContainer || !feedbackListEl) {
+                return;
+            }
+
+            const profile = getEngagementProfile(currentUser);
+            const isDemoUser = currentUser?.id === DEMO_USER_PROFILE.id;
+            const isPersonalized = Boolean(currentUser && currentUser.id) && !isDemoUser;
+
+            if (loginMessageEl) {
+                loginMessageEl.classList.toggle('hidden', isPersonalized);
+            }
+
+            hoursValueEl.textContent = `${profile.hours?.value ?? 0}`;
+            if (hoursLabelEl) {
+                hoursLabelEl.textContent = profile.hours?.label || '';
+            }
+            if (hoursDeltaEl) {
+                const deltaText = profile.hours?.delta || '';
+                hoursDeltaEl.textContent = deltaText;
+                hoursDeltaEl.classList.toggle('hidden', !deltaText);
+            }
+
+            rolesContainer.innerHTML = '';
+            const roles = profile.roles && profile.roles.length ? profile.roles : ['Role assignments will appear here.'];
+            roles.forEach(roleName => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 font-semibold px-3 py-1 rounded-full text-sm';
+                chip.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${roleName}`;
+                rolesContainer.appendChild(chip);
+            });
+
+            if (consistencySummaryEl) {
+                consistencySummaryEl.textContent = profile.consistency?.summary || 'Consistency data coming soon.';
+            }
+            if (consistencyDetailEl) {
+                consistencyDetailEl.textContent = profile.consistency?.detail || '';
+            }
+            if (consistencyStreakEl) {
+                consistencyStreakEl.textContent = profile.consistency?.streak || '';
+            }
+
+            feedbackListEl.innerHTML = '';
+            const feedbackItems = Array.isArray(profile.feedback) ? profile.feedback : [];
+            if (feedbackItems.length === 0) {
+                if (feedbackEmptyEl) {
+                    feedbackEmptyEl.classList.remove('hidden');
+                }
+            } else {
+                if (feedbackEmptyEl) {
+                    feedbackEmptyEl.classList.add('hidden');
+                }
+                feedbackItems.forEach(item => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-2xl border border-indigo-100 bg-white/90 backdrop-blur-sm shadow-sm p-4 space-y-3';
+                    const header = document.createElement('div');
+                    header.className = 'flex items-center justify-between text-sm text-indigo-600 font-semibold';
+                    header.innerHTML = `<span><i class="fa-solid fa-user-check mr-2"></i>${item.mentor || 'Senior Mentor'}</span><span>${item.date || ''}</span>`;
+                    const body = document.createElement('p');
+                    body.className = 'text-slate-700';
+                    body.textContent = item.comment || '';
+                    card.appendChild(header);
+                    card.appendChild(body);
+                    feedbackListEl.appendChild(card);
+                });
+            }
+
+            if (feedbackEmptyEl && !isPersonalized) {
+                feedbackEmptyEl.classList.remove('hidden');
+            }
+        }
+
+        function renderPassionIndex(currentUser) {
+            const card = document.getElementById('passion-card');
+            const scoreValueEl = document.getElementById('passion-score-value');
+            const scoreLabelEl = document.getElementById('passion-score-label');
+            const insightEl = document.getElementById('passion-insight');
+            const attendanceBar = document.getElementById('passion-attendance-bar');
+            const attendanceValueEl = document.getElementById('passion-attendance-value');
+            const attendanceLabelEl = document.getElementById('passion-attendance-label');
+            const appraisalBar = document.getElementById('passion-appraisals-bar');
+            const appraisalValueEl = document.getElementById('passion-appraisals-value');
+            const appraisalLabelEl = document.getElementById('passion-appraisals-label');
+            const satisfactionBar = document.getElementById('passion-satisfaction-bar');
+            const satisfactionValueEl = document.getElementById('passion-satisfaction-value');
+            const satisfactionLabelEl = document.getElementById('passion-satisfaction-label');
+
+            if (!card || !scoreValueEl) {
+                return;
+            }
+
+            const profile = getEngagementProfile(currentUser) || {};
+            const passion = profile.passionIndex || null;
+
+            if (!passion) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+
+            const compositeScore = Number.isFinite(passion.composite) ? Math.round(passion.composite) : null;
+            if (compositeScore !== null) {
+                scoreValueEl.textContent = compositeScore;
+            } else {
+                scoreValueEl.textContent = '--';
+            }
+
+            if (scoreLabelEl) {
+                scoreLabelEl.textContent = passion.compositeLabel || 'Tracking new data';
+            }
+            if (insightEl) {
+                insightEl.textContent = passion.insight || 'Complete more rides to see your leadership signal populate.';
+            }
+
+            const updateBar = (barEl, valueEl, labelEl, metric, maxScore, formatter) => {
+                if (!barEl || !valueEl) return;
+                const rawScore = metric?.score;
+                const score = Number.isFinite(rawScore) ? rawScore : 0;
+                const displayLabel = metric?.label || '';
+                const safeMax = maxScore || 1;
+                const percent = Math.max(0, Math.min(1, safeMax === 0 ? 0 : score / safeMax));
+                barEl.style.width = `${Math.round(percent * 100)}%`;
+                valueEl.textContent = formatter(score, percent);
+                if (labelEl) {
+                    labelEl.textContent = displayLabel;
+                }
+            };
+
+            updateBar(
+                attendanceBar,
+                attendanceValueEl,
+                attendanceLabelEl,
+                passion.attendance,
+                1,
+                (score, percent) => `${Math.round(percent * 100)}%`
+            );
+            updateBar(
+                appraisalBar,
+                appraisalValueEl,
+                appraisalLabelEl,
+                passion.appraisals,
+                5,
+                (score) => `${score.toFixed(1)}/5`
+            );
+            updateBar(
+                satisfactionBar,
+                satisfactionValueEl,
+                satisfactionLabelEl,
+                passion.satisfaction,
+                5,
+                (score) => `${score.toFixed(1)}/5`
+            );
+        }
+
+        function updateDemoBanner(messageKey = 'preview') {
+            const banner = document.getElementById('demo-mode-banner');
+            const detail = document.getElementById('demo-mode-detail');
+            if (!banner || !detail) return;
+
+            if (messageKey === 'hide') {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            const copy = {
+                preview: {
+                    title: 'Demo mode activated',
+                    detail: 'No login detected, so we loaded Skyler Demo’s dashboard to showcase the full experience.'
+                },
+                offline: {
+                    title: 'Live data unavailable',
+                    detail: 'We couldn’t reach the API just now, so you’re seeing the polished demo data instead.'
+                }
+            };
+
+            const selection = copy[messageKey] || copy.preview;
+            const titleEl = banner.querySelector('strong');
+            if (titleEl) {
+                titleEl.textContent = selection.title;
+            }
+            detail.textContent = selection.detail;
+            banner.classList.remove('hidden');
+        }
+
+        function renderDashboardContent(currentUser, activities = []) {
+            const dashboardContainer = document.getElementById('dashboard-container');
+            const currentUserDisplay = document.getElementById('current-user-display');
+            const roleCard = document.getElementById('role-card');
+            const assignmentCard = document.getElementById('assignment-card');
+            const upcomingEventsList = document.getElementById('upcoming-events-list');
+            const historyList = document.getElementById('history-list');
+
+            if (!currentUser) {
+                if (dashboardContainer) {
+                    dashboardContainer.innerHTML = '<p class="text-center text-red-50 text-xl font-semibold mt-10"><i class="fa-solid fa-user-xmark mr-2"></i> Volunteer data not found.</p>';
+                }
+                return;
+            }
+
+            const volunteerRoleKey = currentUser.role && HERO_ROLES[currentUser.role] ? currentUser.role : 'default';
+            const heroRole = HERO_ROLES[volunteerRoleKey];
+            const isDemoUser = currentUser.id === DEMO_USER_PROFILE.id;
+            const normalizedActivities = Array.isArray(activities) ? activities : [];
+
+            if (currentUserDisplay) {
+                currentUserDisplay.textContent = currentUser.name || 'Volunteer';
+            }
+
+            if (roleCard) {
+                roleCard.innerHTML = `
+                    <article class="role-overview-card">
+                        <span class="role-overview-card__badge"><i class="fa-solid fa-id-card-clip"></i> Mission identity</span>
+                        <div class="role-overview-card__body">
+                            <div class="role-overview-card__icon">${heroRole.icon}</div>
+                            <div class="role-overview-card__content">
+                                <p class="role-overview-card__eyebrow">Your hero role</p>
+                                <h2 class="role-overview-card__title ${heroRole.color}">${heroRole.name}</h2>
+                                <p class="role-overview-card__copy">This is your primary mission specialization, set during onboarding. Update it anytime from your profile.</p>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }
+
+            renderOnboardingProgressCard(currentUser);
+
+            if (assignmentCard) {
+                const currentAssignment = normalizedActivities.find(activity => activity.id === currentUser.assignedActivityId) || null;
+                const isAssigned = Boolean(currentAssignment);
+
+                if (isAssigned) {
+                    if (isDemoUser) {
+                        assignmentCard.innerHTML = `
+                            <div class="flex justify-between items-start mb-4">
+                                <h3 class="text-2xl font-extrabold text-sky-800 flex items-center">
+                                    <i class="fa-solid fa-bell-concierge mr-3"></i> Active Mission (Demo)
+                                </h3>
+                                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm shadow-md">
+                                    ${currentAssignment.roleNeeded.charAt(0).toUpperCase() + currentAssignment.roleNeeded.slice(1).replace('-', ' ')}
+                                </span>
+                            </div>
+                            <p class="text-3xl font-extrabold text-sky-800">${currentAssignment.name}</p>
+                            <p class="text-lg text-gray-700 mt-2"><i class="fa-solid fa-calendar-day mr-2 text-sky-500"></i> Date: <span class="font-semibold">${formatDate(currentAssignment.date)}</span></p>
+                            <p class="text-sm text-sky-600 mt-3 border-t pt-2">
+                                <i class="fa-solid fa-lightbulb text-sky-50 mr-2"></i> In the live app, this button lets you manage your assignment.
+                            </p>
+                            <button class="mt-4 w-full bg-slate-200 text-slate-500 font-semibold py-2 px-4 rounded-lg cursor-not-allowed" disabled aria-disabled="true">
+                                <i class="fa-solid fa-user-minus mr-2"></i> Unregister (demo)
+                            </button>
+                        `;
+                    } else {
+                        assignmentCard.innerHTML = `
+                            <div class="flex justify-between items-start mb-4">
+                                <h3 class="text-2xl font-extrabold text-sky-800 flex items-center">
+                                    <i class="fa-solid fa-bell-concierge mr-3"></i> Active Mission
+                                </h3>
+                                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm shadow-md">
+                                    ${currentAssignment.roleNeeded.charAt(0).toUpperCase() + currentAssignment.roleNeeded.slice(1).replace('-', ' ')}
+                                </span>
+                            </div>
+                            <p class="text-3xl font-extrabold text-sky-800">${currentAssignment.name}</p>
+                            <p class="text-lg text-gray-700 mt-2"><i class="fa-solid fa-calendar-day mr-2 text-sky-500"></i> Date: <span class="font-semibold">${formatDate(currentAssignment.date)}</span></p>
+                            <p class="text-sm text-sky-600 mt-3 border-t pt-2">
+                                <i class="fa-solid fa-lightbulb text-sky-50 mr-2"></i> Tip: Review the mission details on the Events page!
+                            </p>
+                            <button onclick="handleUnregister('${currentAssignment.id}')" class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                                <i class="fa-solid fa-user-minus mr-2"></i> Unregister (Must have good reason!)
+                            </button>
+                        `;
+                    }
+                } else {
+                    assignmentCard.innerHTML = `
+                        <div class="p-6 bg-green-100 rounded-lg border-2 border-green-400 text-center">
+                            <i class="fa-solid fa-check-circle text-5xl text-green-500 mb-3"></i>
+                            <p class="text-2xl font-extrabold text-green-800">Mission Ready!</p>
+                            <p class="text-md text-gray-700 mt-1">You currently have no active assignment. Go find an adventure!</p>
+                            <a href="events.html" class="inline-block mt-3 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
+                                <i class="fa-solid fa-magnifying-glass mr-2"></i> Browse Missions
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+
+            if (upcomingEventsList) {
+                const upcomingEvents = normalizedActivities
+                    .filter(activity => (activity.assignedVolunteerIds?.length || 0) < (activity.requiredVolunteers || 0))
+                    .filter(activity => activity.id !== currentUser.assignedActivityId)
+                    .sort((a, b) => new Date(a.date) - new Date(b.date))
+                    .slice(0, 3);
+
+                if (upcomingEvents.length > 0) {
+                    upcomingEventsList.innerHTML = upcomingEvents.map(activity => {
+                        const remaining = (activity.requiredVolunteers || 0) - (activity.assignedVolunteerIds?.length || 0);
+                        const spotsTextClass = remaining <= 2 ? 'text-red-600' : 'text-green-600';
+                        return `
+                            <li class="bg-gray-100 p-4 rounded-lg shadow-sm border-l-4 border-orange-500 flex justify-between items-center transition duration-200 hover:shadow-md hover:bg-gray-200">
+                                <div>
+                                    <p class="text-lg font-bold text-gray-800">${activity.name}</p>
+                                    <p class="text-sm text-orange-600 font-semibold"><i class="fa-solid fa-clock mr-1"></i> ${formatDate(activity.date)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="block text-2xl font-black ${spotsTextClass}">${remaining}</span>
+                                    <span class="text-xs text-gray-500">Spots Left</span>
+                                </div>
+                            </li>
+                        `;
+                    }).join('');
+                } else {
+                    upcomingEventsList.innerHTML = '<li class="p-4 text-center text-gray-500"><i class="fa-solid fa-cloud-sun mr-2"></i> All clear! Time for some rest, or check back later!</li>';
+                }
+            }
+
+            if (historyList) {
+                const completedMissions = [
+                    { id: 1, name: 'Sunset Park Ride Patrol', date: '2025-05-10', role: 'Buddy', rating: 5, xp: 50 },
+                    { id: 2, name: 'Bike Maintenance Workshop', date: '2025-04-15', role: 'Mechanic', rating: 4, xp: 40 }
+                ];
+
+                if (completedMissions.length > 0) {
+                    historyList.innerHTML = completedMissions.map(mission => {
+                        const filledStars = '<i class="fa-solid fa-star text-yellow-400"></i>'.repeat(mission.rating);
+                        const emptyStars = '<i class="fa-regular fa-star text-yellow-400"></i>'.repeat(5 - mission.rating);
+                        return `
+                            <li class="bg-gray-100 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                                <div>
+                                    <p class="text-lg font-semibold text-gray-800">${mission.name}</p>
+                                    <p class="text-sm text-gray-500">Completed on ${formatDate(mission.date)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-md">${filledStars}${emptyStars}</p>
+                                    <p class="text-sm font-bold text-green-600"><i class="fa-solid fa-circle-up mr-1"></i> +${mission.xp} XP</p>
+                                </div>
+                            </li>
+                        `;
+                    }).join('');
+                } else {
+                    historyList.innerHTML = '<li class="p-4 text-center text-gray-500">No completed missions yet. Let\'s get riding!</li>';
+                }
+            }
+
+            renderEngagementInsights(currentUser);
+            renderPassionIndex(currentUser);
+        }
+
+        function renderDemoDashboard(messageKey = 'preview') {
+            seedDemoProgress();
+            renderDashboardContent(DEMO_USER_PROFILE, DEMO_ACTIVITIES);
+            updateDemoBanner(messageKey);
+        }
+
         function getVolunteers() {
             try {
                 const data = localStorage.getItem(VOLUNTEERS_STORAGE_KEY);
@@ -120,6 +773,133 @@
             messageBox.classList.remove('hidden');
         }
 
+        function getOnboardingProgressStore() {
+            try {
+                const data = localStorage.getItem(ONBOARDING_PROGRESS_KEY);
+                return data ? JSON.parse(data) : {};
+            } catch (e) {
+                console.error('Error reading onboarding progress:', e);
+                return {};
+            }
+        }
+
+        function saveOnboardingProgressStore(store) {
+            try {
+                localStorage.setItem(ONBOARDING_PROGRESS_KEY, JSON.stringify(store));
+            } catch (e) {
+                console.error('Error saving onboarding progress:', e);
+            }
+        }
+
+        function ensureOnboardingProgress(store, userId, roleKey) {
+            if (!store[userId]) {
+                store[userId] = {
+                    completed: [],
+                    certified: false,
+                    role: roleKey,
+                    updatedAt: null
+                };
+            }
+            store[userId].completed = Array.from(new Set(store[userId].completed || []));
+            if (roleKey) {
+                store[userId].role = roleKey;
+            }
+            return store[userId];
+        }
+
+        function getUserOnboardingProgressRecord(user, roleKey, modules = []) {
+            if (!user || !user.id) return null;
+            const store = getOnboardingProgressStore();
+            const resolvedRoleKey = roleKey && ROLE_ONBOARDING_MODULES[roleKey] ? roleKey
+                : (user.role && ROLE_ONBOARDING_MODULES[user.role] ? user.role : 'default');
+            const progressRecord = ensureOnboardingProgress(store, user.id, resolvedRoleKey);
+
+            const validModuleIds = new Set(modules.map(module => module.id));
+            const filteredCompleted = progressRecord.completed.filter(moduleId => validModuleIds.has(moduleId));
+
+            let didMutate = filteredCompleted.length !== progressRecord.completed.length;
+            if (didMutate) {
+                progressRecord.completed = filteredCompleted;
+            }
+
+            const isCertified = validModuleIds.size > 0 && filteredCompleted.length >= validModuleIds.size;
+            if (progressRecord.certified !== isCertified) {
+                progressRecord.certified = isCertified;
+                didMutate = true;
+            }
+
+            if (didMutate) {
+                progressRecord.updatedAt = new Date().toISOString();
+                store[user.id] = progressRecord;
+                saveOnboardingProgressStore(store);
+            }
+
+            return progressRecord;
+        }
+
+        function calculateOnboardingProgress(userProgress, modules) {
+            const total = modules?.length || 0;
+            const completed = userProgress ? modules.filter(module => userProgress.completed.includes(module.id)).length : 0;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+            return { completed, total, percent };
+        }
+
+        function renderOnboardingProgressCard(user) {
+            const card = document.getElementById('onboarding-progress-card');
+            if (!card) return;
+
+            const roleKey = user && user.role && ROLE_ONBOARDING_MODULES[user.role] ? user.role : 'default';
+            const modules = ROLE_ONBOARDING_MODULES[roleKey] || ROLE_ONBOARDING_MODULES.default;
+            const userProgress = getUserOnboardingProgressRecord(user, roleKey, modules);
+            const progress = calculateOnboardingProgress(userProgress, modules);
+
+            const bar = document.getElementById('progress-card-bar');
+            const label = document.getElementById('progress-card-label');
+            const percentEl = document.getElementById('progress-card-percent');
+                const badge = document.getElementById('progress-card-badge');
+                const actionButton = document.getElementById('progress-card-action');
+            const list = document.getElementById('progress-card-list');
+            const description = document.getElementById('progress-card-description');
+
+            if (bar) {
+                bar.style.width = `${progress.percent}%`;
+            }
+            if (label) {
+                label.textContent = `${progress.completed} of ${progress.total} modules complete`;
+            }
+            if (percentEl) {
+                percentEl.textContent = `${progress.percent}%`;
+            }
+            if (badge) {
+                const showBadge = Boolean(user && userProgress?.certified);
+                badge.classList.toggle('hidden', !showBadge);
+            }
+                if (actionButton) {
+                    if (userProgress?.certified) {
+                        actionButton.classList.add('hidden');
+                        actionButton.setAttribute('aria-hidden', 'true');
+                    } else {
+                        actionButton.classList.remove('hidden');
+                        actionButton.setAttribute('aria-hidden', 'false');
+                    }
+                }
+            if (description) {
+                const roleName = HERO_ROLES[roleKey]?.name || 'Anchor Volunteer';
+                description.textContent = `Complete the ${roleName} onboarding path to unlock your certification badge.`;
+            }
+            if (list) {
+                list.innerHTML = modules.map(module => {
+                    const completed = userProgress && userProgress.completed.includes(module.id);
+                    return `
+                        <li class="flex items-center gap-2 text-sm ${completed ? 'text-green-600 font-semibold' : 'text-slate-600'}">
+                            <i class="fa-solid ${completed ? 'fa-circle-check text-green-500' : 'fa-circle text-slate-300'}"></i>
+                            <span>${module.title}</span>
+                        </li>
+                    `;
+                }).join('');
+            }
+        }
+
         window.handleUnregister = function(activityId) {
             const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
             if (!currentUserId) {
@@ -150,159 +930,46 @@
         }
 
         function renderDashboard() {
-            // Fetch current user ID from localStorage
             const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
             if (!currentUserId) {
-                // If no user ID is stored, redirect to signup page
-                window.location.href = 'signup.html';
+                renderDemoDashboard('preview');
                 return;
             }
 
-            // Fetch user data from backend API
             fetch(`http://localhost:3000/api/volunteers/${currentUserId}`)
-            .then(response => response.json())
-            .then(currentUser => {
-                const dashboardContainer = document.getElementById('dashboard-container');
-                const currentUserDisplay = document.getElementById('current-user-display');
-                const roleCard = document.getElementById('role-card');
-
-                if (!currentUser) {
-                    dashboardContainer.innerHTML = '<p class="text-center text-red-50 text-xl font-semibold mt-10"><i class="fa-solid fa-user-xmark mr-2"></i> No volunteer data found. Please complete the <a href="index.html" class="text-sky-500 font-bold hover:underline">Sign-up</a> first.</p>';
-                    return;
-                }
-
-                // --- ROLE FETCHING: Use the 'role' property from the volunteer object ---
-                // If the role isn't one of the HERO_ROLES keys, it falls back to 'default'.
-                const volunteerRoleKey = currentUser.role in HERO_ROLES ? currentUser.role : 'default';
-                const heroRole = HERO_ROLES[volunteerRoleKey]; 
-                // ------------------------------------------------------------------------
-
-
-                // Display Current User Name
-                if (currentUserDisplay) {
-                    currentUserDisplay.textContent = currentUser.name || 'Volunteer';
-                }
-                
-                // --- 1. Hero Role Card (Now Dynamic) ---
-                roleCard.innerHTML = `
-                    <article class="role-overview-card">
-                        <span class="role-overview-card__badge"><i class="fa-solid fa-id-card-clip"></i> Mission identity</span>
-                        <div class="role-overview-card__body">
-                            <div class="role-overview-card__icon">${heroRole.icon}</div>
-                            <div class="role-overview-card__content">
-                                <p class="role-overview-card__eyebrow">Your hero role</p>
-                                <h2 class="role-overview-card__title ${heroRole.color}">${heroRole.name}</h2>
-                                <p class="role-overview-card__copy">This is your primary mission specialization, set during onboarding. Update it anytime from your profile.</p>
-                            </div>
-                        </div>
-                    </article>
-                `;
-
-                // --- 2. Current Assignment Card (Logic unchanged) ---
-                // Fetch activities from backend API
-                fetch('http://localhost:3000/api/activities')
-                .then(response => response.json())
-                .then(activities => {
-                    const assignmentCard = document.getElementById('assignment-card');
-                    const currentAssignment = activities.find(a => a.id === currentUser.assignedActivityId);
-                    const isAssigned = !!currentAssignment;
-
-                    if (isAssigned) {
-                        assignmentCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-4">
-                                <h3 class="text-2xl font-extrabold text-sky-800 flex items-center">
-                                    <i class="fa-solid fa-bell-concierge mr-3"></i> Active Mission
-                                </h3>
-                                <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm shadow-md">
-                                    ${currentAssignment.roleNeeded.charAt(0).toUpperCase() + currentAssignment.roleNeeded.slice(1).replace('-', ' ')}
-                                </span>
-                            </div>
-                            <p class="text-3xl font-extrabold text-sky-800">${currentAssignment.name}</p>
-                            <p class="text-lg text-gray-700 mt-2"><i class="fa-solid fa-calendar-day mr-2 text-sky-500"></i> Date: <span class="font-semibold">${formatDate(currentAssignment.date)}</span></p>
-                            <p class="text-sm text-sky-600 mt-3 border-t pt-2">
-                                <i class="fa-solid fa-lightbulb text-sky-50 mr-2"></i> **Tip:** Review the mission details on the Events page!
-                            </p>
-                            <button onclick="handleUnregister('${currentAssignment.id}')" class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
-                                <i class="fa-solid fa-user-minus mr-2"></i> Unregister (Must have good reason!)
-                            </button>
-                        `;
-                    } else {
-                        assignmentCard.innerHTML = `
-                            <div class="p-6 bg-green-100 rounded-lg border-2 border-green-400 text-center">
-                                <i class="fa-solid fa-check-circle text-5xl text-green-500 mb-3"></i>
-                                <p class="text-2xl font-extrabold text-green-800">Mission Ready!</p>
-                                <p class="text-md text-gray-700 mt-1">You currently have no active assignment. Go find an adventure!</p>
-                                <a href="events.html" class="inline-block mt-3 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">
-                                    <i class="fa-solid fa-magnifying-glass mr-2"></i> Browse Missions
-                                </a>
-                            </div>
-                        `;
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch volunteer');
+                    }
+                    return response.json();
+                })
+                .then(currentUser => {
+                    if (!currentUser || currentUser.error) {
+                        renderDemoDashboard('offline');
+                        return;
                     }
 
-                    // --- 3. Suggested Events List (Logic unchanged) ---
-                    const upcomingEventsList = document.getElementById('upcoming-events-list');
-                    
-                    const upcomingEvents = activities
-                        .filter(a => a.assignedVolunteerIds.length < a.requiredVolunteers)
-                        .filter(a => a.id !== (currentUser ? currentUser.assignedActivityId : null))
-                        .sort((a, b) => new Date(a.date) - new Date(b.date))
-                        .slice(0, 3);
-
-                    if (upcomingEvents.length > 0) {
-                        upcomingEventsList.innerHTML = upcomingEvents.map(activity => {
-                            const remaining = activity.requiredVolunteers - activity.assignedVolunteerIds.length;
-                            const spotsTextClass = remaining <= 2 ? 'text-red-600' : 'text-green-600';
-                            return `
-                                <li class="bg-gray-100 p-4 rounded-lg shadow-sm border-l-4 border-orange-500 flex justify-between items-center transition duration-200 hover:shadow-md hover:bg-gray-200">
-                                    <div>
-                                        <p class="text-lg font-bold text-gray-800">${activity.name}</p>
-                                        <p class="text-sm text-orange-600 font-semibold"><i class="fa-solid fa-clock mr-1"></i> ${formatDate(activity.date)}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="block text-2xl font-black ${spotsTextClass}">${remaining}</span>
-                                        <span class="text-xs text-gray-500">Spots Left</span>
-                                    </div>
-                                </li>
-                            `;
-                        }).join('');
-                    } else {
-                        upcomingEventsList.innerHTML = '<li class="p-4 text-center text-gray-500"><i class="fa-solid fa-cloud-sun mr-2"></i> All clear! Time for some rest, or check back later!</li>';
-                    }
-                    
-                    // --- 4. Activity History (Logic unchanged) ---
-                    const historyList = document.getElementById('history-list');
-                    const completedMissions = [
-                        { id: 1, name: "Sunset Park Ride Patrol", date: "2025-05-10", role: "Buddy", rating: 5, xp: 50 },
-                        { id: 2, name: "Bike Maintenance Workshop", date: "2025-04-15", role: "Mechanic", rating: 4, xp: 40 },
-                    ];
-
-                    if (completedMissions.length > 0) {
-                        historyList.innerHTML = completedMissions.map(mission => {
-                            const stars = '<i class="fa-solid fa-star text-yellow-400"></i>'.repeat(mission.rating) + '<i class="fa-regular fa-star text-yellow-400"></i>'.repeat(5 - mission.rating);
-                            return `
-                                <li class="bg-gray-100 p-4 rounded-lg shadow-sm flex justify-between items-center">
-                                    <div>
-                                        <p class="text-lg font-semibold text-gray-800">${mission.name}</p>
-                                        <p class="text-sm text-gray-500">Completed on ${formatDate(mission.date)}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-md">${stars}</p>
-                                        <p class="text-sm font-bold text-green-600"><i class="fa-solid fa-circle-up mr-1"></i> +${mission.xp} XP</p>
-                                    </div>
-                                </li>
-                            `;
-                        }).join('');
-                    } else {
-                        historyList.innerHTML = '<li class="p-4 text-center text-gray-500">No completed missions yet. Let\'s get riding!</li>';
-                    }
+                    fetch('http://localhost:3000/api/activities')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Failed to fetch activities');
+                            }
+                            return response.json();
+                        })
+                        .then(activities => {
+                            renderDashboardContent(currentUser, activities);
+                            updateDemoBanner('hide');
+                        })
+                        .catch(error => {
+                            console.error('Error fetching activities:', error);
+                            renderDashboardContent(currentUser, DEMO_ACTIVITIES);
+                            updateDemoBanner('offline');
+                        });
                 })
                 .catch(error => {
-                    console.error('Error fetching activities:', error);
+                    console.error('Error fetching user data:', error);
+                    renderDemoDashboard('offline');
                 });
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-            });
         }
         
         document.addEventListener('DOMContentLoaded', () => {
@@ -366,6 +1033,23 @@
 
         <section class="dashboard-container-centered">
             <div class="glass-card glass-card--light" id="dashboard-container">
+                <div id="demo-mode-banner" class="hidden mb-6 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5 shadow-sm">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="flex items-start gap-4">
+                            <span class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 text-xl">
+                                <i class="fa-solid fa-eye"></i>
+                            </span>
+                            <div>
+                                <strong class="text-base font-semibold text-slate-900">Demo mode activated</strong>
+                                <p id="demo-mode-detail" class="mt-1 text-sm text-slate-600">You’re previewing Skyler’s volunteer dashboard while we get things ready.</p>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-semibold text-indigo-600 shadow-sm">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Try signing up to unlock your own stats
+                        </span>
+                    </div>
+                </div>
                 <!-- Metric Cards at Top -->
                 <div class="metric-ticker metric-ticker--dashboard">
                     <article class="metric-card">
@@ -391,6 +1075,121 @@
                         <div id="assignment-card" class="glass-card glass-card--light">
                             <p class="text-base font-semibold text-slate-700">Current assignment</p>
                         </div>
+                        <div id="onboarding-progress-card" class="glass-card glass-card--light">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <span class="tag"><i class="fa-solid fa-award"></i> Onboarding progress</span>
+                                    <h3 class="mt-3 text-2xl font-extrabold text-slate-900">Certification tracker</h3>
+                                    <p class="text-slate-600 mt-2" id="progress-card-description">Stay on top of your mission readiness modules.</p>
+                                </div>
+                                <span class="cert-badge hidden" id="progress-card-badge"><i class="fa-solid fa-certificate"></i> Certified</span>
+                            </div>
+                            <div class="mt-5 space-y-3">
+                                <div class="progress-track">
+                                    <div class="progress-bar" id="progress-card-bar"></div>
+                                </div>
+                                <div class="progress-stats">
+                                    <span id="progress-card-label">0 of 0 modules complete</span>
+                                    <span id="progress-card-percent">0%</span>
+                                </div>
+                            </div>
+                            <ul class="space-y-2 mt-5" id="progress-card-list"></ul>
+                            <a href="onboarding.html" id="progress-card-action" class="btn btn-high-contrast mt-4 inline-flex w-full sm:w-auto justify-center hidden" aria-hidden="true">
+                                <i class="fa-solid fa-graduation-cap"></i> Complete onboarding modules
+                            </a>
+                        </div>
+
+                        <div id="engagement-card" class="glass-card glass-card--light space-y-6">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <span class="tag"><i class="fa-solid fa-wave-pulse"></i> Engagement pulse</span>
+                                    <h3 class="mt-3 text-2xl font-extrabold text-slate-900">Volunteer impact insights</h3>
+                                    <p id="engagement-login-message" class="text-slate-600 mt-2">Log in to unlock your personalized engagement stats. For the demo, you’re previewing Skyler’s data.</p>
+                                </div>
+                                <span class="hidden text-sm font-semibold text-indigo-500" aria-hidden="true"></span>
+                            </div>
+                            <div class="grid gap-6 lg:grid-cols-3">
+                                <div class="rounded-2xl border border-indigo-100 bg-white/90 p-5 shadow-sm">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Hours logged</p>
+                                    <p id="engagement-hours-value" class="mt-2 text-4xl font-black text-slate-900">--</p>
+                                    <p id="engagement-hours-label" class="mt-1 text-sm text-slate-600">Loading metrics...</p>
+                                    <p id="engagement-hours-delta" class="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hidden"></p>
+                                </div>
+                                <div class="space-y-5 lg:col-span-2">
+                                    <div class="rounded-2xl border border-indigo-100 bg-white/90 p-5 shadow-sm">
+                                        <div class="flex items-center justify-between gap-4">
+                                            <h4 class="text-sm font-semibold uppercase tracking-wide text-indigo-600">Active roles</h4>
+                                            <i class="fa-solid fa-users text-indigo-400"></i>
+                                        </div>
+                                        <div id="engagement-roles-list" class="mt-4 flex flex-wrap gap-2 text-sm text-indigo-700">
+                                            <span class="text-slate-400">Loading roles...</span>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2 rounded-2xl border border-indigo-100 bg-white/90 p-5 shadow-sm">
+                                        <h4 class="text-sm font-semibold uppercase tracking-wide text-indigo-600">Consistency</h4>
+                                        <p id="engagement-consistency-summary" class="text-base font-semibold text-slate-800">Tracking consistency...</p>
+                                        <p id="engagement-consistency-detail" class="text-sm text-slate-600">We’ll highlight your cadence once data comes in.</p>
+                                        <p id="engagement-consistency-streak" class="text-xs font-semibold uppercase tracking-wide text-emerald-600">No streak yet</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rounded-2xl border border-indigo-100 bg-white/90 p-5 shadow-sm">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <span class="tag"><i class="fa-solid fa-comments"></i> Mentor shout-outs</span>
+                                        <p class="mt-2 text-base font-semibold text-slate-800">Qualitative feedback from ride leads</p>
+                                    </div>
+                                    <i class="fa-solid fa-quote-right text-2xl text-indigo-100"></i>
+                                </div>
+                                <div id="feedback-list" class="mt-4 space-y-3"></div>
+                                <p id="feedback-empty-state" class="mt-3 hidden rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-600">Complete a live mission to unlock personalized mentor feedback.</p>
+                            </div>
+                        </div>
+
+                        <div id="passion-card" class="glass-card glass-card--light space-y-6">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <span class="tag"><i class="fa-solid fa-fire"></i> Passion & performance index</span>
+                                    <h3 class="mt-3 text-2xl font-extrabold text-slate-900">Leadership signal tracker</h3>
+                                    <p class="text-slate-600 mt-2">We blend engagement, senior appraisals, and self-reported satisfaction to spotlight emerging leaders.</p>
+                                </div>
+                                <div class="rounded-2xl border border-slate-200 bg-slate-900 text-white px-5 py-4 text-center">
+                                    <p class="text-xs uppercase tracking-wide text-slate-300">Composite score</p>
+                                    <p id="passion-score-value" class="mt-1 text-4xl font-black">--</p>
+                                    <p id="passion-score-label" class="text-sm font-semibold text-slate-200">Calibrating…</p>
+                                </div>
+                            </div>
+                            <div class="grid gap-5 md:grid-cols-3">
+                                <article class="rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Attendance & hours</p>
+                                    <p id="passion-attendance-value" class="mt-2 text-2xl font-extrabold text-slate-900">--</p>
+                                    <p id="passion-attendance-label" class="text-sm text-slate-600">Tracking mission cadence…</p>
+                                    <div class="mt-3 h-2 rounded-full bg-slate-200">
+                                        <div id="passion-attendance-bar" class="h-2 rounded-full bg-indigo-500" style="width: 0%;"></div>
+                                    </div>
+                                </article>
+                                <article class="rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Senior appraisals</p>
+                                    <p id="passion-appraisals-value" class="mt-2 text-2xl font-extrabold text-slate-900">--</p>
+                                    <p id="passion-appraisals-label" class="text-sm text-slate-600">Awaiting mentor reviews…</p>
+                                    <div class="mt-3 h-2 rounded-full bg-slate-200">
+                                        <div id="passion-appraisals-bar" class="h-2 rounded-full bg-purple-500" style="width: 0%;"></div>
+                                    </div>
+                                </article>
+                                <article class="rounded-2xl border border-indigo-100 bg-white/90 p-4 shadow-sm">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-indigo-500">Self satisfaction</p>
+                                    <p id="passion-satisfaction-value" class="mt-2 text-2xl font-extrabold text-slate-900">--</p>
+                                    <p id="passion-satisfaction-label" class="text-sm text-slate-600">Pulling survey pulse…</p>
+                                    <div class="mt-3 h-2 rounded-full bg-slate-200">
+                                        <div id="passion-satisfaction-bar" class="h-2 rounded-full bg-emerald-500" style="width: 0%;"></div>
+                                    </div>
+                                </article>
+                            </div>
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                                <p class="text-sm font-semibold text-slate-700 flex items-center gap-2"><i class="fa-solid fa-arrow-trend-up text-indigo-500"></i> Leadership insight</p>
+                                <p id="passion-insight" class="mt-1 text-sm text-slate-600">Engage with more missions to surface tailored leadership actions.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="dashboard-column dashboard-column--secondary">
@@ -400,7 +1199,7 @@
                                     <span class="tag"><i class="fa-solid fa-map-pin"></i> Suggested missions</span>
                                     <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Top picks tailored to your profile</h2>
                                 </div>
-                                <a href="events.html" class="btn btn-ghost border border-slate-200"><i class="fa-solid fa-arrow-right"></i> View all missions</a>
+                                <a href="events.html" class="btn btn-high-contrast"><i class="fa-solid fa-arrow-right"></i> View all missions</a>
                             </div>
                             <p class="mt-3 text-slate-600">Choose one ride at a time to ensure quality attention for each participant with ASD.</p>
                             <ul id="upcoming-events-list" class="space-y-3 mt-5">

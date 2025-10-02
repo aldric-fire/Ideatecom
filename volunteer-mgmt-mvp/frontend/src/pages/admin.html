@@ -19,6 +19,14 @@
             text-align: center;
             cursor: pointer;
         }
+        @keyframes pulse-up {
+            0% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-10px); opacity: 1; }
+            100% { transform: translateY(0); opacity: 0; }
+        }
+        .passion-power-up {
+            animation: pulse-up 1s ease-out forwards;
+        }
     </style>
     <script>
         const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
@@ -372,6 +380,138 @@
             });
         }
 
+        function triggerPassionPowerUp(effect) {
+            const powerUpContainer = document.getElementById('passion-power-up-container');
+            if (!powerUpContainer) return;
+
+            const sign = effect >= 0 ? '+' : '';
+            const color = effect >= 0 ? 'text-green-500' : 'text-red-500';
+
+            const powerUp = document.createElement('div');
+            powerUp.textContent = `${sign}${effect} PI`;
+            powerUp.className = `absolute text-2xl font-extrabold ${color} passion-power-up`;
+
+            const offsetX = (Math.random() - 0.5) * 50;
+            powerUp.style.left = '50%';
+            powerUp.style.transform = `translateX(-50%) translateX(${offsetX}px)`;
+
+            powerUpContainer.appendChild(powerUp);
+            powerUp.addEventListener('animationend', () => powerUp.remove());
+        }
+
+        function populateVolunteerDropdown() {
+            const select = document.getElementById('volunteer-name-select');
+            if (!select) return;
+
+            fetch('http://localhost:3000/api/volunteers')
+            .then(response => response.json())
+            .then(volunteers => {
+                const filteredVolunteers = volunteers.filter(v => v.role !== 'planner');
+                select.innerHTML = '<option value="" disabled selected>Select Volunteer</option>';
+
+                filteredVolunteers
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .forEach(v => {
+                        const option = document.createElement('option');
+                        option.value = v.name;
+                        option.textContent = `${v.name} (PI: ${v.passionIndex})`;
+                        option.dataset.id = v.id;
+                        select.appendChild(option);
+                    });
+            })
+            .catch(error => {
+                console.error('Error fetching volunteers:', error);
+            });
+        }
+
+        function populateActivityDropdown() {
+            const select = document.getElementById('activity-id-select');
+            if (!select) return;
+
+            fetch('http://localhost:3000/api/activities')
+            .then(response => response.json())
+            .then(activities => {
+                select.innerHTML = '<option value="" disabled selected>Select Activity</option>';
+
+                activities
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(activity => {
+                        const option = document.createElement('option');
+                        option.value = activity.id;
+                        option.textContent = `${activity.name} (${activity.date})`;
+                        select.appendChild(option);
+                    });
+            })
+            .catch(error => {
+                console.error('Error fetching activities:', error);
+            });
+        }
+
+        function handleAppraisalSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+
+            const volunteerSelect = document.getElementById('volunteer-name-select');
+            const activitySelect = document.getElementById('activity-id-select');
+            if (!volunteerSelect || !activitySelect) {
+                showMessageBox('Unable to load volunteers or activities. Please refresh and try again.', true);
+                return;
+            }
+
+            const volunteerName = formData.get('volunteer-name')?.trim();
+            const activityId = formData.get('activity-id');
+            const passionEffect = parseInt(formData.get('passion-effect'), 10);
+            const comment = formData.get('comment');
+
+            if (!volunteerName || !activityId || Number.isNaN(passionEffect)) {
+                showMessageBox('Please ensure the volunteer, activity, and Passion Index effect are selected.', true);
+                return;
+            }
+
+            const selectedOption = volunteerSelect.options[volunteerSelect.selectedIndex];
+            const volunteerId = selectedOption?.dataset?.id;
+
+            if (!volunteerId) {
+                showMessageBox(`Volunteer "${volunteerName}" not found.`, true);
+                return;
+            }
+
+            fetch('http://localhost:3000/api/appraisals', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    volunteerId,
+                    activityId,
+                    passionIndexEffect: passionEffect,
+                    comment
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessageBox(data.error, true);
+                    return;
+                }
+
+                triggerPassionPowerUp(passionEffect);
+                form.reset();
+                populateVolunteerDropdown();
+                populateActivityDropdown();
+                renderAppraisals();
+
+                const newIndex = typeof data.newPassionIndex === 'number' ? data.newPassionIndex : 'updated';
+                const sentiment = passionEffect >= 0 ? 'boost' : 'correction';
+                showMessageBox(`Index for ${volunteerName} updated! They feel the ${sentiment}. New Index: ${newIndex}.`);
+            })
+            .catch(error => {
+                console.error('Error saving appraisal:', error);
+                showMessageBox('An error occurred while submitting the appraisal. Please try again.', true);
+            });
+        }
+
         window.autoAllocate = function(activityId, roleNeeded) {
             // Fetch volunteers from backend API
             fetch('http://localhost:3000/api/volunteers')
@@ -435,22 +575,32 @@
         }
         
         document.addEventListener('DOMContentLoaded', () => {
-            // Initial data display
-            renderCalendar(currentCalendarDate); // NEW: Render the calendar first
+            renderCalendar(currentCalendarDate);
             renderAllocationDashboard();
             renderAppraisals();
+            populateVolunteerDropdown();
+            populateActivityDropdown();
 
-            // Setup activity form listener
             const activityForm = document.getElementById('activity-form');
             if (activityForm) {
                 activityForm.addEventListener('submit', handleActivitySubmit);
             }
-            
-            document.getElementById('close-message-box').addEventListener('click', () => {
-                document.getElementById('message-box').classList.add('hidden');
-            });
 
-            // Initialize responsive navigation
+            const appraisalForm = document.getElementById('appraisal-form');
+            if (appraisalForm) {
+                appraisalForm.addEventListener('submit', handleAppraisalSubmit);
+            }
+
+            const closeButton = document.getElementById('close-message-box');
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    const messageBox = document.getElementById('message-box');
+                    if (messageBox) {
+                        messageBox.classList.add('hidden');
+                    }
+                });
+            }
+
             initResponsiveNav();
         });
     </script>
@@ -545,6 +695,66 @@
             </div>
         </section>
 
+        <section class="glass-card glass-card--light relative overflow-hidden">
+            <div id="passion-power-up-container" class="absolute inset-0 pointer-events-none"></div>
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-4 max-w-xl">
+                    <span class="tag"><i class="fa-solid fa-fire"></i> Volunteer mission control</span>
+                    <h2 class="text-3xl font-extrabold text-slate-900">Adjust Passion Index in seconds</h2>
+                    <p class="text-slate-600">Capture micro-appraisals right after events to keep the allocation engine accurate. Scores update instantly across the dashboard and matching tools.</p>
+                    <ul class="space-y-3 text-slate-600">
+                        <li class="flex gap-3 items-start">
+                            <i class="fa-solid fa-gauge-high text-sky-600 mt-1"></i>
+                            <span><strong>Spotlight top performers</strong> by adding quick boosts when volunteers deliver standout support.</span>
+                        </li>
+                        <li class="flex gap-3 items-start">
+                            <i class="fa-solid fa-arrows-rotate text-sky-600 mt-1"></i>
+                            <span><strong>Course-correct early</strong> with gentle downticks and notes that inform coaching conversations.</span>
+                        </li>
+                        <li class="flex gap-3 items-start">
+                            <i class="fa-solid fa-share text-sky-600 mt-1"></i>
+                            <span><strong>Sync insights across teams</strong> so planners, buddies, and mechanics see the latest readiness score.</span>
+                        </li>
+                    </ul>
+                </div>
+                <form id="appraisal-form" class="relative z-10 w-full lg:max-w-md space-y-4 bg-white/95 border border-slate-200 rounded-2xl shadow-xl p-6">
+                    <div>
+                        <span class="tag"><i class="fa-solid fa-bolt"></i> Record appraisal</span>
+                        <p class="text-sm text-slate-600 mt-2">Submit feedback after every ride or workshop.</p>
+                    </div>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Volunteer</span>
+                        <select id="volunteer-name-select" name="volunteer-name" required class="w-full rounded-xl border border-slate-200 bg-white/90 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                            <option value="" disabled selected>Select Volunteer (Current PI)</option>
+                        </select>
+                    </label>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Mission completed</span>
+                        <select id="activity-id-select" name="activity-id" required class="w-full rounded-xl border border-slate-200 bg-white/90 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                            <option value="" disabled selected>Select Activity</option>
+                        </select>
+                    </label>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Index effect</span>
+                        <select name="passion-effect" required class="w-full rounded-xl border border-slate-200 bg-white/90 px-3 py-3 font-semibold text-center focus:outline-none focus:ring-2 focus:ring-sky-400">
+                            <option value="10" class="text-green-600">+10 🔥 Legendary Performance!</option>
+                            <option value="5" class="text-green-500">+5 Great Job!</option>
+                            <option value="0" selected class="text-gray-600">0 Standard Mission Success</option>
+                            <option value="-5" class="text-red-500">-5 Needs Follow-Up</option>
+                            <option value="-10" class="text-red-600">-10 Major Issue</option>
+                        </select>
+                    </label>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-semibold text-slate-700">Appraisal notes</span>
+                        <textarea name="comment" rows="3" placeholder="Provide feedback to justify the index change..." class="w-full rounded-xl border border-slate-200 bg-white/90 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-sky-400"></textarea>
+                    </label>
+                    <button type="submit" class="btn btn-high-contrast w-full justify-center">
+                        <i class="fa-solid fa-bolt"></i> Update Passion Index
+                    </button>
+                </form>
+            </div>
+        </section>
+
         <section class="glass-card glass-card--light overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -573,9 +783,9 @@
         <section class="glass-card glass-card--light table-card">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <span class="tag"><i class="fa-solid fa-ranking-star"></i> Passion leaderboard</span>
-                    <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Top volunteers by readiness</h2>
-                    <p class="text-slate-600 mt-2">See who's available, who's deployed, and where their strengths shine.</p>
+                    <span class="tag"><i class="fa-solid fa-ranking-star"></i> Volunteer Leaderboard (Allocation Metric)</span>
+                    <h2 class="mt-3 text-2xl font-extrabold text-slate-900">Top volunteers by Passion Index</h2>
+                    <p class="text-slate-600 mt-2">Volunteers with highest scores are prioritized for allocation.</p>
                 </div>
             </div>
             <div class="overflow-x-auto mt-6">

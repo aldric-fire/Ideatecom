@@ -9,52 +9,977 @@
     <link rel="stylesheet" href="../style/styles.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Simple animation for the power-up effect */
-        @keyframes pulse-up {
-            0% { transform: translateY(0); opacity: 0.5; }
-            50% { transform: translateY(-10px); opacity: 1; }
-            100% { transform: translateY(0); opacity: 0; }
-        }
-        .passion-power-up {
-            animation: pulse-up 1s ease-out forwards;
-        }
     </style>
     <script>
-        const VOLUNTEERS_STORAGE_KEY = 'AB_VOLUNTEERS';
-        const ACTIVITIES_STORAGE_KEY = 'AB_ACTIVITIES';
-        const APPRAISALS_STORAGE_KEY = 'AB_APPRAISALS'; 
+    const CURRENT_USER_ID_KEY = 'CURRENT_USER_ID';
+    const ONBOARDING_PROGRESS_KEY = 'AB_ONBOARDING_PROGRESS';
 
-        function getVolunteers() {
+        const ROLE_INFO = {
+            'cycling-buddy': {
+                displayName: 'Cycling Buddy',
+                tagline: 'Build confidence for 1:1 rides and sensory-friendly pacing.',
+                summary: 'Focus on proactive communication, route awareness, and adaptive coaching for participants with ASD.'
+            },
+            'logistics-support': {
+                displayName: 'Logistics Pro',
+                tagline: 'Keep every event running like clockwork.',
+                summary: 'Dial in load-in checklists, volunteer coordination, and inclusive arrival experiences.'
+            },
+            'mechanic': {
+                displayName: 'Bike Mechanic',
+                tagline: 'Ensure every ride starts with a safe, tuned bike.',
+                summary: 'Sharpen rapid safety checks, adaptive bike setups, and on-route fixes.'
+            },
+            'planner': {
+                displayName: 'Senior Planner',
+                tagline: 'Design inclusive ride plans from kickoff to cooldown.',
+                summary: 'Lead pre-ride briefings, coordinate stakeholders, and create sensory-friendly routes.'
+            },
+            'default': {
+                displayName: 'Anchor Volunteer',
+                tagline: 'Start with the core mission readiness modules.',
+                summary: 'Learn universal safety, communication, and support skills for every role.'
+            }
+        };
+
+        const ROLE_MODULE_LIBRARY = {
+            'cycling-buddy': [
+                {
+                    id: 'cb-01',
+                    title: 'Adaptive Ride Safety Essentials',
+                    duration: '6 min',
+                    videoUrl: 'https://youtu.be/dkoVxBnnGko?si=1VZ51IhgaaOrf2oo',
+                    description: 'Prep before every buddy ride: route brief, sensory scan, and partner expectations.',
+                    quiz: {
+                        question: 'What should you confirm before rolling out with your rider?',
+                        options: [
+                            'Route map, emergency plan, and communication cues',
+                            'Who is taking photos for social media',
+                            'Where to stop for snacks first',
+                            'What music playlist to stream during the ride'
+                        ],
+                        answer: 'Route map, emergency plan, and communication cues'
+                    }
+                },
+                {
+                    id: 'cb-02',
+                    title: 'Coaching with Confidence',
+                    duration: '5 min',
+                    videoUrl: 'https://youtu.be/w-HYZv6HzAs?si=ozlznR4BRei32qSd',
+                    description: 'Learn calming prompts, motivational scripts, and how to reset when a rider feels overwhelmed.',
+                    quiz: {
+                        question: 'When a participant shows signs of overload, you should…',
+                        options: [
+                            'Encourage a deep-breath pause and offer a sensory break option',
+                            'Increase pace to finish faster',
+                            'Tell them to ignore the feeling',
+                            'Stop the ride immediately without checking in'
+                        ],
+                        answer: 'Encourage a deep-breath pause and offer a sensory break option'
+                    }
+                },
+                {
+                    id: 'cb-03',
+                    title: 'Buddy Debriefs that Stick',
+                    duration: '4 min',
+                    videoUrl: 'https://youtu.be/YxX0i-N4Zoc?si=4wAzbGoLlGKTzc1j',
+                    description: 'Deliver strengths-first feedback and log highlights for the next match.',
+                    quiz: {
+                        question: 'What is a best practice for post-ride debriefs?',
+                        options: [
+                            'Lead with successes and agree on one next-step skill focus',
+                            'Focus only on what went wrong',
+                            'Skip the debrief if riders look happy',
+                            'Use technical language without explanation'
+                        ],
+                        answer: 'Lead with successes and agree on one next-step skill focus'
+                    }
+                }
+            ],
+            'logistics-support': [
+                {
+                    id: 'ls-01',
+                    title: 'Event Staging 101',
+                    duration: '7 min',
+                    videoUrl: 'https://youtu.be/jXsFwPIOT1w?si=KhXp7fpJeptPCS-t',
+                    description: 'Build arrival pathways, quiet check-in zones, and inclusive cue signage.',
+                    quiz: {
+                        question: 'What is the first priority when staging the welcome zone?',
+                        options: [
+                            'Create a clearly marked, low-sensory check-in flow',
+                            'Set up a loudspeaker at the entrance',
+                            'Place merchandise tables in the middle',
+                            'Start the music playlist at full volume'
+                        ],
+                        answer: 'Create a clearly marked, low-sensory check-in flow'
+                    }
+                },
+                {
+                    id: 'ls-02',
+                    title: 'Radio & Volunteer Comms',
+                    duration: '5 min',
+                    videoUrl: 'https://www.youtube.com/embed/NpEaa2P7qZI',
+                    description: 'Coordinate marshals, medical, and support teams with clear role scripts.',
+                    quiz: {
+                        question: 'Effective radio communication should…',
+                        options: [
+                            'Use short call signs and confirm receipt of critical updates',
+                            'Include personal jokes to keep morale high',
+                            'Avoid repeating key details to save airtime',
+                            'Be limited to team leads only'
+                        ],
+                        answer: 'Use short call signs and confirm receipt of critical updates'
+                    }
+                },
+                {
+                    id: 'ls-03',
+                    title: 'Wrap-Up & Reporting',
+                    duration: '4 min',
+                    videoUrl: 'https://www.youtube.com/embed/5MgBikgcWnY',
+                    description: 'Capture attendance, note wins, and log follow-up tasks within 15 minutes of close.',
+                    quiz: {
+                        question: 'What should a logistics lead submit after each event?',
+                        options: [
+                            'Attendance, equipment status, and any accessibility notes',
+                            'Only the number of snacks consumed',
+                            'A full financial audit',
+                            'Nothing unless problems arose'
+                        ],
+                        answer: 'Attendance, equipment status, and any accessibility notes'
+                    }
+                }
+            ],
+            'mechanic': [
+                {
+                    id: 'me-01',
+                    title: 'Quick Safety Inspection',
+                    duration: '6 min',
+                    videoUrl: 'https://www.youtube.com/embed/nON_pS0eJ1k',
+                    description: 'Apply the ABCD (Air, Brakes, Chain, Drive) check in under five minutes.',
+                    quiz: {
+                        question: 'During the pre-ride ABCD check you should…',
+                        options: [
+                            'Inspect tires, brakes, chain tension, and drivetrain shifting',
+                            'Focus only on the frame color',
+                            'Check accessories first',
+                            'Skip the brakes if time is short'
+                        ],
+                        answer: 'Inspect tires, brakes, chain tension, and drivetrain shifting'
+                    }
+                },
+                {
+                    id: 'me-02',
+                    title: 'Adaptive Bike Fitting',
+                    duration: '5 min',
+                    videoUrl: 'https://www.youtube.com/embed/_DCbR0Nxo0w',
+                    description: 'Fit seated and tandem bikes for comfort, stability, and sensory needs.',
+                    quiz: {
+                        question: 'When fitting an adaptive bike you should…',
+                        options: [
+                            'Confirm rider comfort with verbal and non-verbal cues',
+                            'Prioritize speed over comfort',
+                            'Lock all adjustments in the lowest position',
+                            'Assume last ride settings are still correct'
+                        ],
+                        answer: 'Confirm rider comfort with verbal and non-verbal cues'
+                    }
+                },
+                {
+                    id: 'me-03',
+                    title: 'Field Fix Toolkit',
+                    duration: '4 min',
+                    videoUrl: 'https://www.youtube.com/embed/WW1dEqT4f1Y',
+                    description: 'Know the top five on-route fixes and how to keep riders calm while you work.',
+                    quiz: {
+                        question: 'What is an essential step during a roadside repair?',
+                        options: [
+                            'Narrate the fix so the rider feels informed and safe',
+                            'Ask the rider to handle tools without guidance',
+                            'Work silently to save time',
+                            'Ignore time checks with event control'
+                        ],
+                        answer: 'Narrate the fix so the rider feels informed and safe'
+                    }
+                }
+            ],
+            'planner': [
+                {
+                    id: 'pl-01',
+                    title: 'Route Design for ASD Inclusion',
+                    duration: '7 min',
+                    videoUrl: 'https://www.youtube.com/embed/qQZXUe6OZ0Y',
+                    description: 'Balance hills, traffic, and sensory touchpoints for mixed-ability riders.',
+                    quiz: {
+                        question: 'An inclusive route should include…',
+                        options: [
+                            'Predictable terrain and quiet regroup zones',
+                            'As many steep hills as possible',
+                            'Crowded city streets at rush hour',
+                            'Unmarked turns to build resilience'
+                        ],
+                        answer: 'Predictable terrain and quiet regroup zones'
+                    }
+                },
+                {
+                    id: 'pl-02',
+                    title: 'Pre-Ride Brief Mastery',
+                    duration: '5 min',
+                    videoUrl: 'https://www.youtube.com/embed/7MDFXy9cF2I',
+                    description: 'Facilitate clear, trauma-informed briefings with sensory previews for riders and caregivers.',
+                    quiz: {
+                        question: 'Which element belongs in every pre-ride briefing?',
+                        options: [
+                            'Safety roles, route map, and sensory notes',
+                            'Your personal race history',
+                            'A surprise route reveal',
+                            'Only the event playlist'
+                        ],
+                        answer: 'Safety roles, route map, and sensory notes'
+                    }
+                },
+                {
+                    id: 'pl-03',
+                    title: 'Post-Ride Reporting',
+                    duration: '4 min',
+                    videoUrl: 'https://www.youtube.com/embed/3BScK-QyWIo',
+                    description: 'Capture rider stories, incident logs, and improvements for continuous learning.',
+                    quiz: {
+                        question: 'After rides, planners should document…',
+                        options: [
+                            'Success stories, incidents, and improvement opportunities',
+                            'Only how many selfies were taken',
+                            'Weather complaints',
+                            'Nothing if everyone finished'
+                        ],
+                        answer: 'Success stories, incidents, and improvement opportunities'
+                    }
+                }
+            ],
+            'default': [
+                {
+                    id: 'core-01',
+                    title: 'Mission Orientation',
+                    duration: '5 min',
+                    videoUrl: 'https://youtu.be/x0o9ldIsylo?si=NbeT4q6I-K12ays_',
+                    description: 'Big-picture tour of Anchor, our riders, and how every role powers inclusion.',
+                    quiz: {
+                        question: 'Anchor exists to…',
+                        options: [
+                            'Deliver inclusive cycling experiences for people with ASD',
+                            'Focus on competitive racing only',
+                            'Sell cycling gear online',
+                            'Host virtual bike games'
+                        ],
+                        answer: 'Deliver inclusive cycling experiences for people with ASD'
+                    }
+                },
+                {
+                    id: 'core-02',
+                    title: 'Safety Mindset Basics',
+                    duration: '6 min',
+                    videoUrl: 'https://youtu.be/X0MKsjbd3SU?si=DPEYeKSxQXSOg_z6',
+                    description: 'Learn the Anchor safety promise, emergency pyramid, and escalation language.',
+                    quiz: {
+                        question: 'The safety promise starts with…',
+                        options: [
+                            'Preparation, communication, and calm response',
+                            'Waiting to react when problems arise',
+                            'Relying only on medical teams',
+                            'Assuming everyone knows the plan'
+                        ],
+                        answer: 'Preparation, communication, and calm response'
+                    }
+                },
+                {
+                    id: 'core-03',
+                    title: 'Inclusive Communication 101',
+                    duration: '4 min',
+                    videoUrl: 'https://www.youtube.com/embed/hVqrW-fPOQ0',
+                    description: 'Practice language that centers riders, acknowledges caregivers, and celebrates growth.',
+                    quiz: {
+                        question: 'Inclusive feedback should…',
+                        options: [
+                            'Be specific, strengths-focused, and next-step oriented',
+                            'Avoid mentioning progress',
+                            'Use technical jargon only',
+                            'Compare riders to each other'
+                        ],
+                        answer: 'Be specific, strengths-focused, and next-step oriented'
+                    }
+                }
+            ]
+        };
+
+        const DEMO_USER_PROFILE = {
+            id: 'demo-volunteer',
+            name: 'Skyler Demo',
+            role: 'cycling-buddy',
+            email: 'demo@anchorbuddies.org'
+        };
+
+        const ENGAGEMENT_METRICS_LIBRARY = {
+            'demo-volunteer': {
+                hours: {
+                    value: 48,
+                    label: 'Community ride hours in 2025',
+                    delta: '+8 hours vs last month'
+                },
+                roles: ['Cycling Buddy', 'Ride Sweep', 'Peer Mentor'],
+                consistency: {
+                    summary: 'Weekly ride cadence',
+                    detail: 'Supported 6 adaptive rides in September',
+                    streak: 'Current streak: 5 consecutive weeks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Renee S.',
+                        date: 'Sep 24, 2025',
+                        comment: 'Great team spirit, very supportive of seniors.'
+                    },
+                    {
+                        mentor: 'Marco T.',
+                        date: 'Aug 30, 2025',
+                        comment: 'Keeps riders calm during transitions and communicates clearly.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 92,
+                    compositeLabel: 'Highly passionate',
+                    attendance: { score: 0.95, label: 'Attendance & service hours' },
+                    appraisals: { score: 4.8, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.6, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Eligible for Lead Ride Captain rotation next month.'
+                }
+            },
+            'cycling-buddy': {
+                hours: {
+                    value: 42,
+                    label: 'Year to date service hours',
+                    delta: '+6 hours vs last month'
+                },
+                roles: ['Cycling Buddy', 'Ride Sweep'],
+                consistency: {
+                    summary: 'Weekly ride cadence',
+                    detail: 'Logged 5 community rides in September',
+                    streak: 'Current streak: 4 consecutive weeks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Renee S.',
+                        date: 'Sep 18, 2025',
+                        comment: 'Great team spirit, very supportive of seniors.'
+                    },
+                    {
+                        mentor: 'Marco T.',
+                        date: 'Aug 30, 2025',
+                        comment: 'Keeps riders calm during transitions and communicates clearly.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 88,
+                    compositeLabel: 'High momentum',
+                    attendance: { score: 0.9, label: 'Attendance & service hours' },
+                    appraisals: { score: 4.6, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.5, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Invited to co-lead sensory pacing huddles next cycle.'
+                }
+            },
+            'logistics-support': {
+                hours: {
+                    value: 58,
+                    label: 'Event production hours in 2025',
+                    delta: '+3 events staffed this quarter'
+                },
+                roles: ['Load-in Captain', 'Check-in Lead'],
+                consistency: {
+                    summary: 'Bi-weekly event rotation',
+                    detail: 'Supported 7 events over the past 90 days',
+                    streak: 'Current streak: 6 on-time arrivals'
+                },
+                feedback: [
+                    {
+                        mentor: 'Alex P.',
+                        date: 'Sep 14, 2025',
+                        comment: 'Anticipates crowd flow and jumps in before lines form.'
+                    },
+                    {
+                        mentor: 'Dana K.',
+                        date: 'Aug 05, 2025',
+                        comment: 'Sets up sensory-friendly zones with care and precision.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 85,
+                    compositeLabel: 'Steady leader',
+                    attendance: { score: 0.92, label: 'Event attendance' },
+                    appraisals: { score: 4.7, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.2, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Shortlisted for shift captain mentorship track.'
+                }
+            },
+            'mechanic': {
+                hours: {
+                    value: 33,
+                    label: 'Shop & ride support hours',
+                    delta: '+2 emergency fixes logged this month'
+                },
+                roles: ['Adaptive Bike Tech', 'Ride-side Mechanic'],
+                consistency: {
+                    summary: 'Weekend wrench sessions',
+                    detail: 'Covered 4 maintenance clinics in September',
+                    streak: 'Current streak: 9 flawless safety checks'
+                },
+                feedback: [
+                    {
+                        mentor: 'Chris L.',
+                        date: 'Sep 22, 2025',
+                        comment: 'Walks riders through repairs so they feel confident and heard.'
+                    },
+                    {
+                        mentor: 'Nia J.',
+                        date: 'Aug 18, 2025',
+                        comment: 'Excellent troubleshooting under pressure during hill climb event.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 83,
+                    compositeLabel: 'Reliable specialist',
+                    attendance: { score: 0.88, label: 'Clinic attendance' },
+                    appraisals: { score: 4.5, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.1, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Recommended for advanced adaptive drivetrain certification.'
+                }
+            },
+            'planner': {
+                hours: {
+                    value: 47,
+                    label: 'Inclusive planning sessions',
+                    delta: '+2 multi-route pilots launched'
+                },
+                roles: ['Route Designer', 'Briefing Facilitator'],
+                consistency: {
+                    summary: 'Monthly strategy sprints',
+                    detail: 'Coordinated 3 partner meetings in September',
+                    streak: 'Current streak: 5 briefs rated “excellent”'
+                },
+                feedback: [
+                    {
+                        mentor: 'Priya V.',
+                        date: 'Sep 10, 2025',
+                        comment: 'Creates calm, clear pre-ride expectations for caregivers and riders.'
+                    },
+                    {
+                        mentor: 'Leo H.',
+                        date: 'Aug 21, 2025',
+                        comment: 'Routes balance challenge and sensory comfort beautifully.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 90,
+                    compositeLabel: 'Strategic trailblazer',
+                    attendance: { score: 0.96, label: 'Planning session presence' },
+                    appraisals: { score: 4.9, label: 'Senior appraisal avg (out of 5)' },
+                    satisfaction: { score: 4.7, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Ideal candidate to mentor new planners during fall cohort.'
+                }
+            },
+            'default': {
+                hours: {
+                    value: 12,
+                    label: 'Starter hours from shadowing & training',
+                    delta: 'Finish onboarding to unlock live tracking'
+                },
+                roles: ['Anchor Volunteer'],
+                consistency: {
+                    summary: 'Onboarding in progress',
+                    detail: 'Complete your first mission to start building a streak',
+                    streak: 'No streak yet — you’re just getting started!'
+                },
+                feedback: [
+                    {
+                        mentor: 'Program Lead Team',
+                        date: '—',
+                        comment: 'Complete your first mission and mentors will leave personalized shout-outs here.'
+                    }
+                ],
+                passionIndex: {
+                    composite: 55,
+                    compositeLabel: 'Momentum building',
+                    attendance: { score: 0.6, label: 'Starter attendance estimate' },
+                    appraisals: { score: 3.5, label: 'Baseline appraisal potential (out of 5)' },
+                    satisfaction: { score: 3.8, label: 'Self-reported satisfaction (out of 5)' },
+                    insight: 'Complete onboarding rides to unlock leadership pathways.'
+                }
+            }
+        };
+
+        function getOnboardingProgressStore() {
             try {
-                const data = localStorage.getItem(VOLUNTEERS_STORAGE_KEY);
-                return data ? JSON.parse(data) : [];
-            } catch (e) { return []; }
+                const data = localStorage.getItem(ONBOARDING_PROGRESS_KEY);
+                return data ? JSON.parse(data) : {};
+            } catch (e) {
+                console.error('Error loading onboarding progress:', e);
+                return {};
+            }
         }
 
-        function saveVolunteers(volunteers) {
+        function saveOnboardingProgressStore(store) {
             try {
-                localStorage.setItem(VOLUNTEERS_STORAGE_KEY, JSON.stringify(volunteers));
-            } catch (e) { console.error("Error saving volunteers to localStorage:", e); }
+                localStorage.setItem(ONBOARDING_PROGRESS_KEY, JSON.stringify(store));
+            } catch (e) {
+                console.error('Error saving onboarding progress:', e);
+            }
         }
 
-        function getActivities() {
-            try {
-                const data = localStorage.getItem(ACTIVITIES_STORAGE_KEY);
-                return data ? JSON.parse(data) : [];
-            } catch (e) { return []; }
-        }
-        
-        function getAppraisals() {
-            try {
-                const data = localStorage.getItem(APPRAISALS_STORAGE_KEY);
-                return data ? JSON.parse(data) : [];
-            } catch (e) { return []; }
+        function ensureUserProgress(store, userId, roleKey) {
+            if (!store[userId]) {
+                store[userId] = {
+                    completed: [],
+                    certified: false,
+                    role: roleKey || 'default',
+                    updatedAt: null
+                };
+            }
+            if (roleKey && store[userId].role !== roleKey) {
+                store[userId].role = roleKey;
+            }
+            store[userId].completed = Array.from(new Set(store[userId].completed || []));
+            return store[userId];
         }
 
-        function saveAppraisals(appraisals) {
+        function isModuleComplete(userProgress, moduleId) {
+            return (userProgress?.completed || []).includes(moduleId);
+        }
+
+        function completeModuleForUser(user, roleModules, moduleId) {
+            if (!user || !user.id) return null;
+            const store = getOnboardingProgressStore();
+            const roleKey = user.role && ROLE_MODULE_LIBRARY[user.role] ? user.role : 'default';
+            const userProgress = ensureUserProgress(store, user.id, roleKey);
+
+            if (!userProgress.completed.includes(moduleId)) {
+                userProgress.completed.push(moduleId);
+                userProgress.updatedAt = new Date().toISOString();
+            }
+
+            const totalModules = roleModules.length;
+            const uniqueCompleted = Array.from(new Set(userProgress.completed));
+            userProgress.completed = uniqueCompleted;
+            userProgress.certified = uniqueCompleted.length >= totalModules;
+
+            store[user.id] = userProgress;
+            saveOnboardingProgressStore(store);
+            return userProgress;
+        }
+
+        function getUserOnboardingProgress(user) {
+            if (!user || !user.id) return null;
+            const store = getOnboardingProgressStore();
+            const roleKey = user.role && ROLE_MODULE_LIBRARY[user.role] ? user.role : 'default';
+            return ensureUserProgress(store, user.id, roleKey);
+        }
+
+        function calculateModuleProgress(userProgress, roleModules) {
+            if (!userProgress) return { completed: 0, total: roleModules.length, percent: 0 };
+            const completed = roleModules.filter(module => userProgress.completed.includes(module.id)).length;
+            const total = roleModules.length;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+            return { completed, total, percent };
+        }
+
+        function normalizeVideoUrl(url) {
+            if (!url) return '';
             try {
-                localStorage.setItem(APPRAISALS_STORAGE_KEY, JSON.stringify(appraisals));
-            } catch (e) { console.error("Error saving appraisals to localStorage:", e); }
+                const parsedUrl = new URL(url, window.location.origin);
+                const host = parsedUrl.hostname || '';
+
+                if (host === 'youtu.be') {
+                    const videoId = parsedUrl.pathname.replace('/', '');
+                    if (videoId) {
+                        return `https://www.youtube.com/embed/${videoId}`;
+                    }
+                }
+
+                if (host.includes('youtube.com')) {
+                    if (parsedUrl.pathname.startsWith('/embed/')) {
+                        return `https://www.youtube.com${parsedUrl.pathname}`;
+                    }
+
+                    if (parsedUrl.pathname === '/watch') {
+                        const videoId = parsedUrl.searchParams.get('v');
+                        if (videoId) {
+                            return `https://www.youtube.com/embed/${videoId}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('Could not normalize video URL:', url, error);
+            }
+
+            return url;
+        }
+
+        function getEngagementProfile(currentUser) {
+            if (currentUser && currentUser.id && ENGAGEMENT_METRICS_LIBRARY[currentUser.id]) {
+                return ENGAGEMENT_METRICS_LIBRARY[currentUser.id];
+            }
+            const roleKey = currentUser && currentUser.role && ENGAGEMENT_METRICS_LIBRARY[currentUser.role] ? currentUser.role : 'default';
+            return ENGAGEMENT_METRICS_LIBRARY[roleKey] || ENGAGEMENT_METRICS_LIBRARY.default;
+        }
+
+        function renderEngagementInsights(currentUser) {
+            const hoursValueEl = document.getElementById('engagement-hours-value');
+            const hoursLabelEl = document.getElementById('engagement-hours-label');
+            const hoursDeltaEl = document.getElementById('engagement-hours-delta');
+            const rolesContainer = document.getElementById('engagement-roles-list');
+            const consistencySummaryEl = document.getElementById('engagement-consistency-summary');
+            const consistencyDetailEl = document.getElementById('engagement-consistency-detail');
+            const consistencyStreakEl = document.getElementById('engagement-consistency-streak');
+            const loginMessageEl = document.getElementById('engagement-login-message');
+            const feedbackListEl = document.getElementById('feedback-list');
+            const feedbackEmptyEl = document.getElementById('feedback-empty-state');
+
+            if (!hoursValueEl || !rolesContainer || !feedbackListEl) {
+                return;
+            }
+
+            const profile = getEngagementProfile(currentUser);
+            const isPersonalized = Boolean(currentUser && currentUser.id);
+
+            if (loginMessageEl) {
+                loginMessageEl.classList.toggle('hidden', isPersonalized);
+            }
+
+            hoursValueEl.textContent = `${profile.hours?.value ?? 0}`;
+            if (hoursLabelEl) {
+                hoursLabelEl.textContent = profile.hours?.label || '';
+            }
+            if (hoursDeltaEl) {
+                const deltaText = profile.hours?.delta || '';
+                hoursDeltaEl.textContent = deltaText;
+                hoursDeltaEl.classList.toggle('hidden', !deltaText);
+            }
+
+            rolesContainer.innerHTML = '';
+            const roles = profile.roles && profile.roles.length ? profile.roles : ['Role assignments will appear here.'];
+            roles.forEach(roleName => {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 font-semibold px-3 py-1 rounded-full text-sm';
+                chip.innerHTML = `<i class="fa-solid fa-user-shield"></i> ${roleName}`;
+                rolesContainer.appendChild(chip);
+            });
+
+            if (consistencySummaryEl) {
+                consistencySummaryEl.textContent = profile.consistency?.summary || 'Consistency data coming soon.';
+            }
+            if (consistencyDetailEl) {
+                consistencyDetailEl.textContent = profile.consistency?.detail || '';
+            }
+            if (consistencyStreakEl) {
+                consistencyStreakEl.textContent = profile.consistency?.streak || '';
+            }
+
+            feedbackListEl.innerHTML = '';
+            const feedbackItems = Array.isArray(profile.feedback) ? profile.feedback : [];
+            if (feedbackItems.length === 0) {
+                if (feedbackEmptyEl) {
+                    feedbackEmptyEl.classList.remove('hidden');
+                }
+            } else {
+                if (feedbackEmptyEl) {
+                    feedbackEmptyEl.classList.add('hidden');
+                }
+                feedbackItems.forEach(item => {
+                    const card = document.createElement('article');
+                    card.className = 'rounded-2xl border border-indigo-100 bg-white/90 backdrop-blur-sm shadow-sm p-4 space-y-3';
+                    const header = document.createElement('div');
+                    header.className = 'flex items-center justify-between text-sm text-indigo-600 font-semibold';
+                    header.innerHTML = `<span><i class="fa-solid fa-user-check mr-2"></i>${item.mentor || 'Senior Mentor'}</span><span>${item.date || ''}</span>`;
+                    const body = document.createElement('p');
+                    body.className = 'text-slate-700';
+                    body.textContent = item.comment || '';
+                    card.appendChild(header);
+                    card.appendChild(body);
+                    feedbackListEl.appendChild(card);
+                });
+            }
+
+            if (feedbackEmptyEl && !isPersonalized) {
+                feedbackEmptyEl.classList.remove('hidden');
+            }
+        }
+
+        function seedDemoProgress() {
+            const store = getOnboardingProgressStore();
+            if (store[DEMO_USER_PROFILE.id]?.seeded) {
+                return;
+            }
+            store[DEMO_USER_PROFILE.id] = {
+                completed: ['cb-01', 'cb-02'],
+                certified: false,
+                role: DEMO_USER_PROFILE.role,
+                updatedAt: new Date().toISOString(),
+                seeded: true
+            };
+            saveOnboardingProgressStore(store);
+        }
+
+        function updateDemoBanner(messageKey = 'preview') {
+            const banner = document.getElementById('demo-mode-banner');
+            const detail = document.getElementById('demo-mode-detail');
+            if (!banner || !detail) return;
+
+            if (messageKey === 'hide') {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            const copy = {
+                preview: {
+                    title: 'Demo mode activated',
+                    detail: 'Showing sample volunteer stats so the MVP feels real during demos. Connect the API when it is ready.'
+                },
+                offline: {
+                    title: 'Live data unavailable',
+                    detail: 'We could not reach the API, so we loaded the polished demo profile instead.'
+                }
+            };
+
+            const selection = copy[messageKey] || copy.preview;
+            banner.querySelector('strong').textContent = selection.title;
+            detail.textContent = selection.detail;
+            banner.classList.remove('hidden');
+        }
+
+        function renderDemoExperience(messageKey = 'preview') {
+            seedDemoProgress();
+            renderRoleModules(DEMO_USER_PROFILE);
+            renderEngagementInsights(DEMO_USER_PROFILE);
+            updateDemoBanner(messageKey);
+        }
+
+        function renderRoleModules(currentUser) {
+            const modulesGrid = document.getElementById('modules-grid');
+            const progressLabel = document.getElementById('module-progress-label');
+            const progressPercent = document.getElementById('module-progress-percent');
+            const roleChip = document.getElementById('role-module-chip');
+            const roleSummary = document.getElementById('role-module-summary');
+            const roleTitle = document.getElementById('role-module-title');
+            const roleTagline = document.getElementById('role-module-tagline');
+
+            if (!modulesGrid || !progressLabel || !progressPercent) {
+                return;
+            }
+
+            const roleKey = currentUser && currentUser.role && ROLE_MODULE_LIBRARY[currentUser.role] ? currentUser.role : 'default';
+            const modules = ROLE_MODULE_LIBRARY[roleKey] || ROLE_MODULE_LIBRARY.default;
+            const roleMeta = ROLE_INFO[roleKey] || ROLE_INFO.default;
+
+            if (roleChip) {
+                roleChip.textContent = roleMeta.displayName;
+            }
+            if (roleTitle) {
+                roleTitle.textContent = `${roleMeta.displayName} onboarding`;
+            }
+            if (roleSummary) {
+                roleSummary.textContent = roleMeta.summary;
+            }
+            if (roleTagline) {
+                roleTagline.textContent = roleMeta.tagline;
+            }
+
+            const userProgress = currentUser ? getUserOnboardingProgress(currentUser) : null;
+            const progress = calculateModuleProgress(userProgress, modules);
+
+            modulesGrid.innerHTML = modules.map(module => createModuleCardHtml(module, userProgress && userProgress.completed.includes(module.id))).join('');
+
+            attachModuleQuizHandlers(currentUser, modules, userProgress);
+            updateModuleProgressUI(currentUser, modules, userProgress, progress);
+        }
+
+        function createModuleCardHtml(module, completed) {
+            const statusText = completed ? '<i class="fa-solid fa-circle-check"></i> Completed' : '<i class="fa-solid fa-hourglass-start"></i> Pending';
+            const disabledAttr = completed ? 'disabled aria-disabled="true"' : '';
+            const buttonLabel = completed ? '<i class="fa-solid fa-medal"></i> Module complete' : '<i class="fa-solid fa-clipboard-check"></i> Submit quiz to unlock';
+            const embedUrl = normalizeVideoUrl(module.videoUrl);
+
+            return `
+                <article class="module-card ${completed ? 'module-card--completed' : ''}" data-module-id="${module.id}">
+                    <div class="flex items-start justify-between gap-3">
+                        <span class="module-card__badge"><i class="fa-solid fa-compass"></i> Learning module</span>
+                        <span class="module-status-pill">${statusText}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-extrabold text-slate-900">${module.title}</h3>
+                        <p class="mt-1 text-sm font-semibold text-indigo-600">${module.duration}</p>
+                        <p class="mt-2 text-slate-600">${module.description}</p>
+                    </div>
+                    <div class="module-card__video">
+                        <iframe src="${embedUrl}" title="${module.title}" loading="lazy" allowfullscreen></iframe>
+                    </div>
+                    <form class="module-card__quiz space-y-3 module-quiz-form" data-module-id="${module.id}">
+                        <p class="text-sm font-semibold text-slate-700">${module.quiz.question}</p>
+                        ${module.quiz.options.map((option, index) => `
+                            <label>
+                                <input type="radio" name="quiz-${module.id}" value="${option}" ${completed ? 'disabled' : ''}>
+                                <span class="text-sm text-slate-600">${option}</span>
+                            </label>
+                        `).join('')}
+                        <button type="submit" class="btn btn-high-contrast module-submit-button" ${disabledAttr}>${buttonLabel}</button>
+                    </form>
+                </article>
+            `;
+        }
+
+        function attachModuleQuizHandlers(currentUser, modules, userProgress) {
+            const forms = document.querySelectorAll('.module-quiz-form');
+            forms.forEach(form => {
+                const moduleId = form.dataset.moduleId;
+                const moduleData = modules.find(module => module.id === moduleId);
+                if (!moduleData) return;
+
+                if (userProgress && isModuleComplete(userProgress, moduleId)) {
+                    disableQuizForm(form);
+                }
+
+                form.addEventListener('submit', event => {
+                    handleModuleQuizSubmit(event, currentUser, moduleData, modules);
+                });
+            });
+        }
+
+        function disableQuizForm(form) {
+            form.querySelectorAll('input').forEach(input => {
+                input.disabled = true;
+                input.setAttribute('aria-disabled', 'true');
+            });
+            const button = form.querySelector('button');
+            if (button) {
+                button.disabled = true;
+                button.setAttribute('aria-disabled', 'true');
+                button.classList.add('opacity-70', 'cursor-not-allowed');
+            }
+        }
+
+        function handleModuleQuizSubmit(event, currentUser, moduleData, modules) {
+            event.preventDefault();
+            const form = event.target;
+
+            if (!currentUser || !currentUser.id) {
+                showMessageBox('Sign up or log back in to track your onboarding progress.', true);
+                return;
+            }
+
+            const selected = form.querySelector('input[type="radio"]:checked');
+            if (!selected) {
+                showMessageBox('Choose an answer before submitting the quiz.', true);
+                return;
+            }
+
+            if (selected.value !== moduleData.quiz.answer) {
+                showMessageBox('Almost there! Review the material and try again.', true);
+                return;
+            }
+
+            const progress = completeModuleForUser(currentUser, modules, moduleData.id);
+            updateModuleCardUI(moduleData.id, progress);
+            updateModuleProgressUI(currentUser, modules, progress, calculateModuleProgress(progress, modules));
+            showMessageBox(`Nice! "${moduleData.title}" is now complete.`, false);
+        }
+
+        function updateModuleCardUI(moduleId, userProgress) {
+            const card = document.querySelector(`.module-card[data-module-id="${moduleId}"]`);
+            if (!card) return;
+            card.classList.add('module-card--completed');
+            const statusPill = card.querySelector('.module-status-pill');
+            if (statusPill) {
+                statusPill.innerHTML = '<i class="fa-solid fa-circle-check"></i> Completed';
+            }
+            const button = card.querySelector('.module-submit-button');
+            if (button) {
+                button.innerHTML = '<i class="fa-solid fa-medal"></i> Module complete';
+                button.disabled = true;
+                button.setAttribute('aria-disabled', 'true');
+                button.classList.add('opacity-70', 'cursor-not-allowed');
+            }
+            const inputs = card.querySelectorAll('input[type="radio"]');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.setAttribute('aria-disabled', 'true');
+            });
+        }
+
+        function updateModuleProgressUI(currentUser, modules, userProgress, progress) {
+            const progressLabel = document.getElementById('module-progress-label');
+            const progressPercent = document.getElementById('module-progress-percent');
+            const progressBar = document.getElementById('module-progress-bar');
+            const badge = document.getElementById('onboarding-cert-badge');
+            const banner = document.getElementById('certificate-banner');
+
+            if (!progressLabel || !progressPercent || !progressBar) return;
+
+            const computedProgress = progress || calculateModuleProgress(userProgress, modules);
+            progressLabel.textContent = `${computedProgress.completed} of ${computedProgress.total} modules complete`;
+            progressPercent.textContent = `${computedProgress.percent}%`;
+            progressBar.style.width = `${computedProgress.percent}%`;
+
+            const isCertified = userProgress?.certified;
+            if (badge) {
+                badge.classList.toggle('hidden', !isCertified);
+            }
+            if (banner) {
+                banner.classList.toggle('hidden', !isCertified);
+            }
+        }
+
+        function showOnboardingLoginPrompt() {
+            const roleSection = document.getElementById('role-onboarding-section');
+            const modulesGrid = document.getElementById('modules-grid');
+            if (modulesGrid) {
+                modulesGrid.insertAdjacentHTML('afterbegin', `
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center">
+                        <p class="text-lg font-semibold text-slate-800 mb-2"><i class="fa-solid fa-user-plus mr-2"></i> Sign in to unlock progress tracking</p>
+                        <p class="text-slate-600">Preview the core modules below, then create your volunteer profile to save completions and earn your badge.</p>
+                        <a href="signup.html" class="btn btn-high-contrast mt-4 justify-center">Go to sign-up</a>
+                    </div>
+                `);
+            }
+            if (roleSection) {
+                roleSection.classList.add('opacity-100');
+            }
+        }
+
+        function initializeRoleOnboarding() {
+            const modulesGrid = document.getElementById('modules-grid');
+            if (modulesGrid) {
+                modulesGrid.innerHTML = `
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center animate-pulse">
+                        <p class="text-slate-700 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Loading role modules…</p>
+                    </div>
+                `;
+            }
+
+            const currentUserId = localStorage.getItem(CURRENT_USER_ID_KEY);
+            if (!currentUserId) {
+                renderDemoExperience('preview');
+                return;
+            }
+
+            fetch(`http://localhost:3000/api/volunteers/${currentUserId}`)
+                .then(response => response.json())
+                .then(user => {
+                    if (!user || user.error) {
+                        renderDemoExperience('offline');
+                        return;
+                    }
+                    renderRoleModules(user);
+                    renderEngagementInsights(user);
+                    updateDemoBanner('hide');
+                })
+                .catch(error => {
+                    console.error('Error loading volunteer for onboarding:', error);
+                    renderDemoExperience('offline');
+                });
         }
 
         // Custom Message Box function (replacing alert())
@@ -85,136 +1010,6 @@
             messageBox.classList.remove('hidden');
         }
 
-        // --- NEW: Passion Power-Up Animation Function ---
-        function triggerPassionPowerUp(effect) {
-            const powerUpContainer = document.getElementById('passion-power-up-container');
-            if (!powerUpContainer) return;
-
-            const sign = effect >= 0 ? '+' : '';
-            const color = effect >= 0 ? 'text-green-500' : 'text-red-500';
-
-            const powerUp = document.createElement('div');
-            powerUp.textContent = `${sign}${effect} PI`;
-            powerUp.className = `absolute text-2xl font-extrabold ${color} passion-power-up`;
-            
-            // Randomize starting position slightly for a fun, game-like effect
-            const offsetX = (Math.random() - 0.5) * 50; // -25px to +25px
-            powerUp.style.left = `50%`;
-            powerUp.style.transform = `translateX(-50%) translateX(${offsetX}px)`;
-            
-            powerUpContainer.appendChild(powerUp);
-
-            // Clean up the element after the animation finishes
-            powerUp.addEventListener('animationend', () => {
-                powerUp.remove();
-            });
-        }
-        // --------------------------------------------------
-
-        // --- Form Submission Logic ---
-        function handleAppraisalSubmit(e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            
-            const volunteerName = formData.get('volunteer-name').trim();
-            const activityId = formData.get('activity-id');
-            const passionEffect = parseInt(formData.get('passion-effect'), 10);
-            const comment = formData.get('comment');
-            
-            if (!volunteerName || !activityId || isNaN(passionEffect)) {
-                showMessageBox("Please ensure the Volunteer, Activity, and a Passion Index effect are selected.", true);
-                return;
-            }
-
-            // Get volunteer ID from the dropdown value (which includes the name and PI)
-            const volunteerSelect = document.getElementById('volunteer-name-select');
-            const selectedOption = volunteerSelect.options[volunteerSelect.selectedIndex];
-            const volunteerId = selectedOption.dataset.id;
-
-            if (!volunteerId) {
-                showMessageBox(`Volunteer "${volunteerName}" not found.`, true);
-                return;
-            }
-
-            // Send appraisal to backend API
-            fetch('http://localhost:3000/api/appraisals', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    volunteerId: volunteerId,
-                    activityId: activityId,
-                    passionIndexEffect: passionEffect,
-                    comment: comment
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showMessageBox(data.error, true);
-                } else {
-                    // Trigger the Fun Animation!
-                    triggerPassionPowerUp(passionEffect);
-                    
-                    form.reset();
-                    populateVolunteerDropdown();
-                    // Show a friendlier success message
-                    showMessageBox(`Index for ${volunteerName} updated! They feel the ${passionEffect >= 0 ? 'boost' : 'correction'}. New Index: ${data.newPassionIndex}.`);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showMessageBox("An error occurred during appraisal. Please try again.", true);
-            });
-        }
-
-        // --- Dynamic Dropdown Population (No change, just ensuring they work) ---
-        function populateVolunteerDropdown() {
-            // Fetch volunteers from backend API
-            fetch('http://localhost:3000/api/volunteers')
-            .then(response => response.json())
-            .then(volunteers => {
-                const filteredVolunteers = volunteers.filter(v => v.role !== 'planner');
-                const select = document.getElementById('volunteer-name-select');
-                
-                select.innerHTML = '<option value="" disabled selected>Select Volunteer</option>';
-
-                filteredVolunteers.sort((a, b) => a.name.localeCompare(b.name)).forEach(v => {
-                    const option = document.createElement('option');
-                    option.value = v.name;
-                    option.textContent = `${v.name} (PI: ${v.passionIndex})`;
-                    option.dataset.id = v.id; // Store the ID in the option element
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching volunteers:', error);
-            });
-        }
-        
-        function populateActivityDropdown() {
-            // Fetch activities from backend API
-            fetch('http://localhost:3000/api/activities')
-            .then(response => response.json())
-            .then(activities => {
-                const select = document.getElementById('activity-id-select');
-                
-                select.innerHTML = '<option value="" disabled selected>Select Activity</option>';
-
-                activities.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(a => {
-                    const option = document.createElement('option');
-                    option.value = a.id;
-                    option.textContent = `${a.name} (${a.date})`;
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching activities:', error);
-            });
-        }
-        
         // --- NEW: Resource Checkoff Logic ---
         function toggleResource(elementId) {
             const element = document.getElementById(elementId);
@@ -233,17 +1028,17 @@
         // ------------------------------------
 
         document.addEventListener('DOMContentLoaded', () => {
-            populateVolunteerDropdown();
-            populateActivityDropdown();
+            initializeRoleOnboarding();
 
-            const appraisalForm = document.getElementById('appraisal-form');
-            if (appraisalForm) {
-                appraisalForm.addEventListener('submit', handleAppraisalSubmit);
+            const closeButton = document.getElementById('close-message-box');
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    const messageBox = document.getElementById('message-box');
+                    if (messageBox) {
+                        messageBox.classList.add('hidden');
+                    }
+                });
             }
-            
-            document.getElementById('close-message-box').addEventListener('click', () => {
-                document.getElementById('message-box').classList.add('hidden');
-            });
         });
     </script>
 </head>
@@ -278,11 +1073,19 @@
     </header>
 
     <main class="page-shell">
+        <section id="demo-mode-banner" class="glass-card glass-card--light border border-amber-200 bg-amber-50 text-amber-800 flex items-start gap-4 hidden">
+            <span class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 text-2xl"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <div class="space-y-1">
+                <p class="text-lg font-extrabold"><strong>Demo mode activated</strong></p>
+                <p class="text-sm" id="demo-mode-detail">Showing sample volunteer stats so the MVP feels real during demos. Connect the API when it is ready.</p>
+            </div>
+        </section>
+
         <section class="hero-card">
             <article class="space-y-5">
-                <span class="hero-eyebrow"><i class="fa-solid fa-graduation-cap"></i> Volunteer mission control</span>
+                <span class="hero-eyebrow"><i class="fa-solid fa-graduation-cap"></i> Learning launchpad</span>
                 <h1 class="hero-title">Train, calibrate, and celebrate every volunteer journey.</h1>
-                <p class="hero-summary">From quick-start checklists to passion power-ups, this is your hub for keeping the crew sharp and inspired.</p>
+                <p class="hero-summary">From quick-start checklists to skill-building micro lessons, this is your hub for keeping the crew sharp and inspired.</p>
                 <div class="metric-ticker">
                     <div class="metric-card">
                         <span class="metric-label">Micro-training</span>
@@ -293,49 +1096,64 @@
                         <p class="text-sm text-slate-600 mt-2">Downloadable guides and videos to support every role.</p>
                     </div>
                     <div class="metric-card">
-                        <span class="metric-label">Appraisal boosts</span>
-                        <p class="text-sm text-slate-600 mt-2">Update the Passion Index with feedback that matters.</p>
+                        <span class="metric-label">Certification progress</span>
+                        <p class="text-sm text-slate-600 mt-2">Watch your badge unlock as you work through each module.</p>
                     </div>
                 </div>
             </article>
 
-            <article class="glass-card glass-card--light relative">
-                <div id="passion-power-up-container" class="absolute inset-0 pointer-events-none"></div>
-                <span class="tag"><i class="fa-solid fa-fire"></i> Passion Index adjuster</span>
-                <h2 class="mt-4 text-2xl font-extrabold text-slate-900">Apply a performance boost</h2>
-                <p class="text-slate-600 mt-2">Record mission feedback to fine-tune each volunteer’s Passion Index.</p>
-                <form id="appraisal-form" class="space-y-4 mt-6">
-                    <label class="block space-y-2">
-                        <span class="text-sm font-semibold text-slate-700">Volunteer</span>
-                        <select id="volunteer-name-select" name="volunteer-name" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400">
-                            <option value="" disabled selected>Select Volunteer (Current PI)</option>
-                        </select>
-                    </label>
-                    <label class="block space-y-2">
-                        <span class="text-sm font-semibold text-slate-700">Mission completed</span>
-                        <select id="activity-id-select" name="activity-id" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400">
-                            <option value="" disabled selected>Select Activity</option>
-                        </select>
-                    </label>
-                    <label class="block space-y-2">
-                        <span class="text-sm font-semibold text-slate-700">Index effect</span>
-                        <select name="passion-effect" required class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 font-semibold text-center focus:outline-none focus:ring-2 focus:ring-red-400">
-                            <option value="10" class="text-green-600">+10 🔥 Legendary Performance!</option>
-                            <option value="5" class="text-green-500">+5 Great Job!</option>
-                            <option value="0" selected class="text-gray-600">0 Standard Mission Success</option>
-                            <option value="-5" class="text-red-500">-5 Needs Follow-Up</option>
-                            <option value="-10" class="text-red-600">-10 Major Issue</option>
-                        </select>
-                    </label>
-                    <label class="block space-y-2">
-                        <span class="text-sm font-semibold text-slate-700">Appraisal notes</span>
-                        <textarea name="comment" rows="3" placeholder="Provide feedback to justify the index change..." class="w-full rounded-xl border border-slate-200 bg-white/85 px-3 py-3 focus:outline-none focus:ring-2 focus:ring-red-400"></textarea>
-                    </label>
-                    <button type="submit" class="btn btn-primary w-full justify-center bg-red-500 hover:bg-red-600">
-                        <i class="fa-solid fa-bolt"></i> Apply passion power-up
-                    </button>
-                </form>
+            <article class="glass-card glass-card--light">
+                <span class="tag"><i class="fa-solid fa-seedling"></i> How onboarding works</span>
+                <h2 class="mt-4 text-2xl font-extrabold text-slate-900">Activate your mission readiness</h2>
+                <p class="text-slate-600 mt-2">Your onboarding journey blends micro-learning, quick reflection prompts, and real-world ride practice. Work through the modules below and mark off the checklist as you go.</p>
+                <ul class="mt-4 space-y-3 text-slate-600">
+                    <li class="flex gap-3 items-start">
+                        <i class="fa-solid fa-play-circle text-indigo-600 mt-1"></i>
+                        <span><strong>Watch short training clips</strong> tailored to your role, then answer one quiz question to lock in key details.</span>
+                    </li>
+                    <li class="flex gap-3 items-start">
+                        <i class="fa-solid fa-clipboard-check text-indigo-600 mt-1"></i>
+                        <span><strong>Track your completion</strong> with the module progress bar—finish them all to earn the certification badge.</span>
+                    </li>
+                    <li class="flex gap-3 items-start">
+                        <i class="fa-solid fa-users text-indigo-600 mt-1"></i>
+                        <span><strong>Sync with your planner</strong> for any follow-up practice or shadow rides once the badge is unlocked.</span>
+                    </li>
+                </ul>
             </article>
+        </section>
+
+        <section class="glass-card glass-card--light" id="role-onboarding-section">
+            <span class="tag"><i class="fa-solid fa-compass"></i> Role onboarding journey</span>
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between mt-4">
+                <div class="space-y-3 max-w-2xl">
+                    <div class="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 font-semibold px-3 py-1 rounded-full w-max">
+                        <i class="fa-solid fa-id-badge"></i>
+                        <span id="role-module-chip">Loading role…</span>
+                    </div>
+                    <h2 class="text-3xl font-extrabold text-slate-900" id="role-module-title">Loading onboarding…</h2>
+                    <p class="text-indigo-600 font-semibold" id="role-module-tagline"></p>
+                    <p class="text-slate-600" id="role-module-summary"></p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 w-full lg:max-w-sm">
+                    <div class="progress-stats">
+                        <span id="module-progress-label">0 of 0 modules complete</span>
+                        <span id="module-progress-percent">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-bar" id="module-progress-bar"></div>
+                    </div>
+                    <span class="cert-badge hidden" id="onboarding-cert-badge"><i class="fa-solid fa-award"></i> Certified</span>
+                </div>
+            </div>
+            <div id="modules-grid" class="module-grid mt-8"></div>
+            <div id="certificate-banner" class="cert-banner hidden">
+                <div class="cert-banner__icon"><i class="fa-solid fa-trophy"></i></div>
+                <div class="cert-banner__content">
+                    <p class="text-lg font-bold">Level unlocked!</p>
+                    <p class="text-sm">All core modules complete. Your certification badge is now visible on the dashboard.</p>
+                </div>
+            </div>
         </section>
 
         <section class="glass-card glass-card--light">
